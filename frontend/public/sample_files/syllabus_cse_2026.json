@@ -1,0 +1,22 @@
+{
+  "department": "Computer Science & Engineering",
+  "curriculum": "Autonomous 2026",
+  "semesters": [
+    {
+      "semester": 3,
+      "courses": ["Data Structures & Algorithms", "Engineering Mathematics III", "Digital Logic Design"]
+    },
+    {
+      "semester": 4,
+      "courses": ["Operating Systems", "Database Management Systems", "Design & Analysis of Algorithms"]
+    },
+    {
+      "semester": 5,
+      "courses": ["Computer Networks", "Software Engineering", "Theory of Computation"]
+    },
+    {
+      "semester": 6,
+      "courses": ["Artificial Intelligence & Machine Learning", "Compiler Design", "Cloud Computing"]
+    }
+  ]
+}

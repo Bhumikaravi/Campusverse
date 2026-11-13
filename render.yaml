@@ -1,0 +1,48 @@
+# Render Blueprint for CampusVerse
+# Deploy both frontend and backend from this repo
+
+services:
+  # Backend — FastAPI Python
+  - type: web
+    name: campusverse-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: CLIENT_URL
+        sync: false  # Set after frontend deploys
+      - key: MONGODB_URI
+        sync: false  # Paste your MongoDB Atlas URI
+      - key: DB_NAME
+        value: campusverse
+      - key: JWT_SECRET
+        generateValue: true
+      - key: STORAGE_PROVIDER
+        value: local
+      - key: GEMINI_API_KEY
+        sync: false  # Optional — paste your Gemini key
+      - key: AUTO_PUBLISH_AI_APPROVED
+        value: "true"
+
+  # Frontend — Static React (Vite)
+  - type: web
+    name: campusverse-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false  # e.g. https://campusverse-api.onrender.com/api

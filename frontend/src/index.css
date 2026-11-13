@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-[#93785b] text-gray-900;
+  background-color: #af7435;
+  min-height: 100vh;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-brand-300 rounded-full hover:bg-brand-400;
+}
+
+/* Theme Styled Buttons & Inputs */
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-5 py-2.5
+    text-sm font-semibold text-white shadow-sm transition
+    hover:bg-brand-600 active:scale-[0.98]
+    disabled:opacity-50 disabled:pointer-events-none;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-brand-200
+    bg-white px-5 py-2.5 text-sm font-semibold text-brand-900 shadow-sm transition
+    hover:bg-brand-50 hover:border-brand-300 active:scale-[0.98]
+    disabled:opacity-50 disabled:pointer-events-none;
+}
+
+.btn-gray-bright {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-100 px-5 py-2.5
+    text-sm font-semibold text-brand-900 border border-brand-200 shadow-sm transition
+    hover:bg-brand-200 active:scale-[0.98];
+}
+
+.input-field {
+  @apply w-full rounded-lg border border-brand-200 bg-white px-4 py-2.5 text-sm
+    text-gray-900 outline-none transition placeholder:text-gray-400
+    focus:border-brand-500 focus:ring-2 focus:ring-brand-200;
+}
+
+.card {
+  @apply rounded-xl border border-brand-200/80 bg-white shadow-sm transition;
+}
+
+.menu-item {
+  @apply flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700
+    transition hover:bg-brand-50 hover:text-brand-900;
+}

@@ -1,0 +1,18 @@
+{
+  "name": "campusverse-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "cd backend && python -m uvicorn main:app --reload --port 5000",
+    "build": "npm --prefix frontend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "preview": "npm --prefix frontend run preview",
+    "server": "cd backend && python -m uvicorn main:app --reload --port 5000",
+    "seed:demo": "python backend/seed_demo_materials.py",
+    "test:demo": "python backend/test_demo_e2e.py",
+    "verify": "python backend/verify_system.py"
+  }
+}
