@@ -1149,6 +1149,7 @@ SYSTEM_PROMPT_CHATGPT_STYLE = (
     "CRITICAL GROUNDING DIRECTIVES (STRICTLY ENFORCED):\n"
     "1. EXCLUSIVE SOURCE OF FACTUAL TRUTH: The uploaded study notes provided in the STUDY NOTES CONTEXT are your primary source of factual information. Ground all explanations in the concepts, definitions, algorithms, and topics present in the notes.\n"
     "   - When a student asks what the subject, course, or active topic is (e.g. asking 'wt is nlp' or 'what is nlp' when studying 'NLP Module 4', or 'what is os' for OS notes), define the subject clearly and directly connect it to the specific modules, algorithms, techniques, and concepts contained in their uploaded notes.\n"
+    "   - When a student asks about the APPLICATIONS, ADVANTAGES, or USES of the subject or concepts in their notes (e.g. asking 'what are the applications of nlp' while studying NLP notes), explain the core practical applications (such as Machine Translation, Sentiment Analysis, Chatbots & Conversational AI, Named Entity Recognition, and Syntax Parsing) and clearly show how the topics in their uploaded notes (e.g. syntax parsing, grammars, CYK algorithm) are applied in these systems. NEVER tell the student \"I couldn't find the answer\" for questions asking about the applications or advantages of their course subject!\n"
     "2. NO FABRICATION OF UNRELATED TOPICS: Do not invent details for topics not covered in their notes.\n"
     "3. HANDLING QUESTIONS NOT IN NOTES:\n"
     "   - For specific concepts or exam questions that are completely missing from the notes and unrelated to the active curriculum:\n"
@@ -1169,8 +1170,8 @@ SYSTEM_PROMPT_CHATGPT_STYLE = (
     "6. UNDERSTANDING STUDENT SHORT FORMS & ACRONYMS:\n"
     "   - Students frequently write in informal shorthand (e.g. 'wt is nlp', 'wat is cfg', 'diff b/w ner and pos', 'pls exp lstm', 'wts cyk algo', 'def parsing', 'hw to do pos tagging').\n"
     "   - Always seamlessly recognize and resolve both chat abbreviations ('wt'/'wat' -> 'what', 'diff b/w' -> 'difference between', 'def' -> 'define', 'exp' -> 'explain', 'algo' -> 'algorithm', 'pls' -> 'please') and technical acronyms ('NLP' -> 'Natural Language Processing', 'CFG' -> 'Context-Free Grammar', 'NER' -> 'Named Entity Recognition', 'CYK' -> 'Cocke-Younger-Kasami algorithm', 'POS' -> 'Part-of-Speech tagging', 'BERT', 'LSTM', 'ML', 'AI', 'DBMS', 'OS').\n"
-    "   - When a student asks about the core subject or acronym of the active notes (e.g. asking 'wt is nlp' or 'what is nlp' while studying 'NLP Module 4'), explain the subject clearly and connect it directly to the concepts, definitions, algorithms, and topics covered in their uploaded notes (e.g. explaining that Natural Language Processing is the computational analysis of human language, and detailing how this module covers syntax parsing, context-free grammars, NER, and language models).\n"
-    "   - NEVER tell the student \"I couldn't find the answer in your notes\" for a question asking about the primary subject of the notes they are viewing!"
+    "   - When a student asks about the core subject, acronym, applications, or advantages of the active notes (e.g. 'wt is nlp', 'what are the applications of nlp', 'uses of ml'), explain the topic thoroughly and connect it directly to the concepts, definitions, algorithms, and modules covered in their uploaded notes.\n"
+    "   - NEVER tell the student \"I couldn't find the answer in your notes\" for a question asking about the primary subject, definitions, applications, or core algorithms of the notes they are viewing!"
 )
 
 BRIEF_DEFINITIONS_BY_TOPIC = {
@@ -1494,6 +1495,77 @@ EXAMPLES_BY_TOPIC["ml"] = EXAMPLES_BY_TOPIC["machine learning"]
 EXAMPLES_BY_TOPIC["dm"] = EXAMPLES_BY_TOPIC["data mining"]
 
 APPLICATIONS_AND_USES_BY_TOPIC = {
+    "nlp": (
+        "**Key Applications of Natural Language Processing (NLP):**\n\n"
+        "- **Machine Translation:** Translating text or speech across languages (e.g., Google Translate, DeepL).\n"
+        "- **Sentiment Analysis:** Classifying consumer opinions, product reviews, and social media sentiment (e.g., positive, neutral, negative).\n"
+        "- **Conversational AI & Chatbots:** Powering virtual assistants and customer service bots (e.g., ChatGPT, Siri, Alexa).\n"
+        "- **Information Extraction & Named Entity Recognition (NER):** Detecting and extracting structured entities (names, locations, dates, monetary values) from unstructured documents.\n"
+        "- **Syntax Parsing & Grammar Checking:** Analyzing hierarchical sentence structures using Context-Free Grammars (CFGs) and parsing algorithms (e.g., CYK algorithm, dependency parsers) for writing tools like Grammarly.\n"
+        "- **Text Summarization:** Generating concise summaries of lengthy research papers, news reports, and medical records.\n"
+        "- **Speech Recognition:** Converting spoken language into text (Automatic Speech Recognition - ASR)."
+    ),
+    "natural language processing": (
+        "**Key Applications of Natural Language Processing (NLP):**\n\n"
+        "- **Machine Translation:** Translating text or speech across languages (e.g., Google Translate, DeepL).\n"
+        "- **Sentiment Analysis:** Classifying consumer opinions, product reviews, and social media sentiment.\n"
+        "- **Conversational AI & Chatbots:** Powering virtual assistants and customer service bots (e.g., ChatGPT, Siri, Alexa).\n"
+        "- **Information Extraction & Named Entity Recognition (NER):** Extracting structured entities (names, locations, organizations) from unstructured text.\n"
+        "- **Syntax Parsing & Grammar Checking:** Analyzing grammatical tree structures with formal grammars (CFGs) and parsers (e.g., CYK algorithm).\n"
+        "- **Text Summarization:** Condensing long articles and documents into key actionable points.\n"
+        "- **Speech Recognition:** Converting spoken acoustic signals into written text."
+    ),
+    "cfg": (
+        "**Applications of Context-Free Grammars (CFG):**\n\n"
+        "- **Compiler Design:** Specifying syntax rules and constructing parse trees for programming languages (e.g., C, Python, Java).\n"
+        "- **Natural Language Parsing:** Modeling syntactic sentence structures in NLP using production rules.\n"
+        "- **Grammar Checking:** Detecting syntactic anomalies in text generation and writing tools.\n"
+        "- **Document Validation:** Defining schema structures and validating hierarchical tag nestings (XML/JSON)."
+    ),
+    "context-free grammar": (
+        "**Applications of Context-Free Grammars (CFG):**\n\n"
+        "- **Compiler Design:** Specifying syntax rules and constructing parse trees for programming languages.\n"
+        "- **Natural Language Parsing:** Modeling syntactic sentence structures in NLP using production rules.\n"
+        "- **Grammar Checking:** Detecting syntactic anomalies in text generation and writing tools."
+    ),
+    "cyk algorithm": (
+        "**Applications of Cocke-Younger-Kasami (CYK) Algorithm:**\n\n"
+        "- **Grammar Parsing in NLP:** Determining whether a sentence belongs to a given Context-Free Grammar in Chomsky Normal Form (CNF).\n"
+        "- **Computational Linguistics:** Constructing syntactic parse trees in $O(n^3)$ dynamic programming runtime.\n"
+        "- **Bioinformatics & RNA Structure:** Modeling secondary RNA folding structures using stochastic context-free grammars."
+    ),
+    "cyk": (
+        "**Applications of Cocke-Younger-Kasami (CYK) Algorithm:**\n\n"
+        "- **Grammar Parsing in NLP:** Determining whether a sentence belongs to a given Context-Free Grammar in Chomsky Normal Form (CNF).\n"
+        "- **Computational Linguistics:** Constructing syntactic parse trees in $O(n^3)$ dynamic programming runtime.\n"
+        "- **Bioinformatics & RNA Structure:** Modeling secondary RNA folding structures using stochastic context-free grammars."
+    ),
+    "ner": (
+        "**Applications of Named Entity Recognition (NER):**\n\n"
+        "- **Search Engines & SEO:** Indexing documents by key entities (persons, places, organizations) for semantic search.\n"
+        "- **Content Recommendation:** Extracting topics and tags to recommend related news articles or academic papers.\n"
+        "- **Customer Support Automation:** Extracting order numbers, product names, and dates from support tickets.\n"
+        "- **Healthcare & Biomedical:** Extracting disease names, drug molecules, and genes from clinical trial papers."
+    ),
+    "named entity recognition": (
+        "**Applications of Named Entity Recognition (NER):**\n\n"
+        "- **Search Engines & SEO:** Indexing documents by key entities (persons, places, organizations) for semantic search.\n"
+        "- **Content Recommendation:** Extracting topics and tags to recommend related news articles or academic papers.\n"
+        "- **Customer Support Automation:** Extracting order numbers, product names, and dates from support tickets.\n"
+        "- **Healthcare & Biomedical:** Extracting disease names, drug molecules, and genes from clinical trial papers."
+    ),
+    "pos tagging": (
+        "**Applications of Part-of-Speech (POS) Tagging:**\n\n"
+        "- **Named Entity Recognition & Parsing:** Serves as a vital prerequisite step for dependency parsing and entity extraction.\n"
+        "- **Text-to-Speech (TTS) Synthesis:** Ensuring correct word pronunciation based on whether a word acts as a noun or verb (e.g., 'record' vs. 'record').\n"
+        "- **Word Sense Disambiguation:** Resolving semantic meaning based on lexical syntactic category."
+    ),
+    "pos": (
+        "**Applications of Part-of-Speech (POS) Tagging:**\n\n"
+        "- **Named Entity Recognition & Parsing:** Serves as a vital prerequisite step for dependency parsing and entity extraction.\n"
+        "- **Text-to-Speech (TTS) Synthesis:** Ensuring correct word pronunciation based on whether a word acts as a noun or verb.\n"
+        "- **Word Sense Disambiguation:** Resolving semantic meaning based on lexical syntactic category."
+    ),
     "data mining": (
         "**Why Data Mining is Useful & Its Real-World Applications:**\n\n"
         "Data Mining transforms massive volumes of raw, chaotic business data into actionable intelligence, automated predictions, and strategic decisions. Here is how and why it is so valuable across industries:\n\n"
@@ -2675,10 +2747,29 @@ def build_deterministic_rag_answer(
             return "**Example from Your Notes:**\n\n" + "\n".join(f"- {s}" for s in example_steps[:6])
 
     # 4. Handle "Applications / Advantages / Usefulness" requests
-    if is_useful_or_application_request(query) or any(k in ql for k in ["application", "useful", "advantage", "use", "benefit"]):
+    if is_useful_or_application_request(query) or any(k in ql for k in ["application", "applications", "useful", "advantage", "advantages", "use", "uses", "benefit", "benefits"]):
         app_adv = [s["text"] for s in all_statements if s["section"].lower() in ["applications", "advantages", "benefits"]]
         if app_adv:
             return "**Applications & Advantages:**\n\n" + "\n".join(f"- {s.rstrip('.')}" for s in app_adv[:6])
+
+        # Check APPLICATIONS_AND_USES_BY_TOPIC
+        for term in [w.lower() for w in clean_q.split() if w.lower() not in RAG_STOP_WORDS]:
+            if term in APPLICATIONS_AND_USES_BY_TOPIC:
+                app_res = APPLICATIONS_AND_USES_BY_TOPIC[term]
+                if all_statements:
+                    note_pts = [s["text"] for s in all_statements[:3] if len(s["text"].split()) >= 4]
+                    if note_pts:
+                        return f"{app_res}\n\n**Topics in Your Uploaded Notes:**\n" + "\n".join(f"- {pt}" for pt in note_pts)
+                return app_res
+            for acr, syns in ACRONYM_SYMS.items():
+                if term == acr or term in syns:
+                    if acr in APPLICATIONS_AND_USES_BY_TOPIC:
+                        app_res = APPLICATIONS_AND_USES_BY_TOPIC[acr]
+                        if all_statements:
+                            note_pts = [s["text"] for s in all_statements[:3] if len(s["text"].split()) >= 4]
+                            if note_pts:
+                                return f"{app_res}\n\n**Topics in Your Uploaded Notes:**\n" + "\n".join(f"- {pt}" for pt in note_pts)
+                        return app_res
 
     # 5. Handle "How it works / Workflow" requests
     if is_how_it_works_request(query):
@@ -3015,13 +3106,24 @@ async def execute_rag_pipeline(
             # Check if query is about a recognized academic topic or active note title
             expanded_tokens = [w.lower() for w in expand_abbreviations(clean_q).split() if w.lower() not in RAG_STOP_WORDS]
             found_knowledge = None
-            for term in expanded_tokens:
-                if term in BRIEF_DEFINITIONS_BY_TOPIC:
-                    found_knowledge = BRIEF_DEFINITIONS_BY_TOPIC[term]
-                    break
-                if term in ACADEMIC_KNOWLEDGE_BASE:
-                    found_knowledge = ACADEMIC_KNOWLEDGE_BASE[term]
-                    break
+            if is_useful_or_application_request(clean_q) or any(k in clean_q.lower() for k in ["application", "applications", "useful", "advantage", "advantages", "use", "uses"]):
+                for term in expanded_tokens:
+                    if term in APPLICATIONS_AND_USES_BY_TOPIC:
+                        found_knowledge = APPLICATIONS_AND_USES_BY_TOPIC[term]
+                        break
+                    for acr, syns in ACRONYM_SYMS.items():
+                        if term == acr or term in syns:
+                            if acr in APPLICATIONS_AND_USES_BY_TOPIC:
+                                found_knowledge = APPLICATIONS_AND_USES_BY_TOPIC[acr]
+                                break
+            if not found_knowledge:
+                for term in expanded_tokens:
+                    if term in BRIEF_DEFINITIONS_BY_TOPIC:
+                        found_knowledge = BRIEF_DEFINITIONS_BY_TOPIC[term]
+                        break
+                    if term in ACADEMIC_KNOWLEDGE_BASE:
+                        found_knowledge = ACADEMIC_KNOWLEDGE_BASE[term]
+                        break
             final_answer = found_knowledge if found_knowledge else (gemini_answer if gemini_answer else det_answer)
         else:
             final_answer = det_answer if (not gemini_answer or is_gemini_rejection) else gemini_answer
