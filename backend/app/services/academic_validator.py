@@ -937,13 +937,25 @@ def detect_document_type_from_content(
                 semantic_profile
             )
 
-    # Check 3: Resume / CV Detection
+    # Check 3: Resume / CV Detection (Only if NOT an academic module/notes with clear academic keywords)
+    academic_keywords_in_doc = sum(1 for p in ACADEMIC_INDICATORS if re.search(p, lower_text, re.IGNORECASE))
+    is_module_or_notes = bool(re.search(r"\b(module|chapter|unit|lecture|notes|syllabus|tutorial|assignment)\b", filename.lower()))
+    
     resume_matches = [p for p in RESUME_KEYWORDS if re.search(p, lower_text, re.IGNORECASE)]
     header_count = sum(1 for h in RESUME_SECTION_HEADERS if re.search(r"\b" + re.escape(h) + r"\b", lower_text))
     has_resume_keyword = any(k in lower_text for k in ["curriculum vitae", "resume", "bio-data", "career objective"])
-    has_contact_and_edu = ("education" in lower_text and ("experience" in lower_text or "skills" in lower_text) and ("phone" in lower_text or "email" in lower_text or "@" in lower_text))
+    has_contact_and_edu = ("education" in lower_text and ("work experience" in lower_text or "employment history" in lower_text) and ("phone" in lower_text or "email" in lower_text or "@" in lower_text))
 
-    if (has_resume_keyword and header_count >= 2) or (has_contact_and_edu and header_count >= 4) or (len(resume_matches) >= 3 and header_count >= 3):
+    # Real resumes have explicit resume keywords or contact info paired with work experience headers, and lack pedagogical module structure
+    is_genuine_resume = False
+    if has_resume_keyword and (header_count >= 2 or len(resume_matches) >= 2):
+        is_genuine_resume = True
+    elif has_contact_and_edu and header_count >= 4 and not is_module_or_notes and academic_keywords_in_doc < 3:
+        is_genuine_resume = True
+    elif len(resume_matches) >= 3 and header_count >= 3 and not is_module_or_notes and academic_keywords_in_doc < 3:
+        is_genuine_resume = True
+
+    if is_genuine_resume:
         semantic_profile["overall_purpose"] = "Personal curriculum vitae / resume detailing individual career history, education, and technical skills."
         return (
             AcademicDocType.RESUME_CV,
