@@ -173,6 +173,28 @@ app.include_router(study_buddy_router)
 app.include_router(guardrails_router)
 app.include_router(recognition_router)
 
+# Mount built React frontend static files if available
+import os
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+frontend_dist = Path(__file__).resolve().parent / "frontend_dist"
+if not frontend_dist.exists():
+    frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+
+if frontend_dist.exists() and (frontend_dist / "index.html").exists():
+    app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_react_frontend(full_path: str):
+        if full_path.startswith("api/") or full_path == "health" or full_path == "docs" or full_path == "openapi.json":
+            return JSONResponse(status_code=404, content={"detail": "Not found"})
+        target_file = frontend_dist / full_path
+        if target_file.is_file():
+            return FileResponse(str(target_file))
+        return FileResponse(str(frontend_dist / "index.html"))
+
 @app.get("/health")
 @app.get("/api/health")
 async def health_check():
