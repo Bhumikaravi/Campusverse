@@ -29,6 +29,32 @@ RAG_STOP_WORDS = {
     "find", "search", "answer", "answers"
 }
 
+def word_stem(w: str) -> str:
+    """Normalizes English words by stripping morphological inflection suffixes."""
+    w = w.lower().strip()
+    if w.endswith("ification") and len(w) > 9:
+        return w[:-9] + "if"
+    if w.endswith("ify") and len(w) > 4:
+        return w[:-3] + "if"
+    for suffix in ("ations", "ation", "tions", "tion", "ments", "ment", "ences", "ence", "ies", "ing", "ers", "er", "ed", "es", "s"):
+        if w.endswith(suffix) and len(w) - len(suffix) >= 3:
+            return w[:-len(suffix)]
+    return w
+
+def terms_match(q_term: str, doc_term: str) -> bool:
+    """Matches two terms considering roots, stems, prefixes, and morphological variations."""
+    q_term = q_term.lower().strip()
+    doc_term = doc_term.lower().strip()
+    if q_term == doc_term:
+        return True
+    q_stem = word_stem(q_term)
+    d_stem = word_stem(doc_term)
+    if q_stem == d_stem:
+        return True
+    if len(q_stem) >= 4 and len(d_stem) >= 4 and (doc_term.startswith(q_stem) or q_term.startswith(d_stem) or d_stem.startswith(q_stem) or q_stem.startswith(d_stem)):
+        return True
+    return False
+
 async def retrieve_context_chunks(
     query: str,
     material_ids: Optional[List[str]] = None,
@@ -116,20 +142,28 @@ async def retrieve_context_chunks(
                 expanded_domain_words.update(terms)
 
     scored = []
+    clean_q_low = query.lower().strip()
     for c in chunks:
         emb = c.get("embedding")
         sim = cosine_similarity(q_embedding, emb) if emb else 0.20
         c_text = c.get("text", "").lower()
         c_title = c.get("title", "").lower()
+        c_tokens = re.findall(r"\b[a-zA-Z0-9_-]+\b", c_text + " " + c_title)
         
-        # Word overlap on genuine domain terms (expanded bidirectionally)
-        overlap = sum(1 for w in expanded_domain_words if w in c_text or w in c_title)
+        # Word overlap on genuine domain terms (expanded bidirectionally with root stemming)
+        overlap = sum(1 for w in expanded_domain_words if any(terms_match(w, cw) for cw in c_tokens))
         
+        phrase_boost = 0.0
+        if clean_q_low and len(clean_q_low) >= 4 and (clean_q_low in c_text or clean_q_low in c_title):
+            phrase_boost = 0.25
+        elif any(len(p) >= 4 and (p in c_text or p in c_title) for p in expanded_domain_words):
+            phrase_boost = 0.10
+
         # If user asked specific domain terms and none exist in chunk/title, reject chunk unless embedding similarity is high
-        if expanded_domain_words and overlap == 0 and sim < 0.38:
+        if expanded_domain_words and overlap == 0 and phrase_boost == 0 and sim < 0.35:
             continue
 
-        boost = min(0.35, overlap * 0.08)
+        boost = min(0.40, (overlap * 0.08) + phrase_boost)
         final_score = sim + boost
         
         if final_score >= 0.20:
@@ -2277,17 +2311,6 @@ def handle_conversational_intent(
     if re.search(r"\b(who\s+are\s+you|what\s+can\s+you\s+do|what\s+is\s+your\s+name|tell\s+me\s+about\s+yourself)\b", ql):
         return "I am your CampusVerse AI Study Companion! I'm here to answer your questions strictly based on the study materials and notes you upload."
 
-    # 6. Unrelated / Off-Topic / General Knowledge / Trivia / Entertainment / Sports (Section 3)
-    unrelated_triggers = [
-        "cricket", "ipl", "football", "soccer", "fifa", "messi", "ronaldo", "match", "score",
-        "capital of", "who invented", "tell me a joke", "make me laugh", "crack a joke",
-        "movie", "bollywood", "hollywood", "weather today", "weather in", "prime minister",
-        "president of", "who won", "election", "recipe", "cook", "how to bake", "resume",
-        "internship advertisement", "job vacancy", "personal advice"
-    ]
-    if any(t in clean for t in unrelated_triggers):
-        return "I'm CampusVerse's study assistant. I can help you with questions related to the academic notes uploaded here."
-
     # 7. Incomplete messages
     incomplete_starters = ["difference between", "formula for", "define", "what is the example of", "compare"]
     if clean in incomplete_starters or (len(words) <= 3 and any(clean.startswith(prefix) for prefix in ["difference between", "formula for"])):
@@ -2829,7 +2852,6 @@ def build_deterministic_rag_answer(
         if steps:
             return "**How It Works (Workflow from Your Notes):**\n\n" + "\n".join(f"- {s}" for s in steps[:6])
 
-    # 6. Concept / Definition / General grounded query
     seen_words = set()
     meaningful_q_words = []
     for w in clean_q.split():
@@ -2838,6 +2860,45 @@ def build_deterministic_rag_answer(
             seen_words.add(wl)
             meaningful_q_words.append(w)
 
+    # 5.5 Handle "Difference / Comparison / Contrast" requests (e.g. "difference AE VAE", "compare AE and VAE")
+    is_diff_request = any(k in ql for k in ["difference", "differences", "compare", "comparison", "vs", "contrast", "distinguish", "differ"])
+    if is_diff_request:
+        diff_statements = []
+        for s in all_statements:
+            txt = s["text"].strip()
+            txt_low = txt.lower()
+            tokens_in_s = re.findall(r"\b[a-zA-Z0-9_-]+\b", txt_low)
+            has_contrast_word = any(w in txt_low for w in ["difference", "differences", "whereas", "while", "instead of", "unlike", "compared to", "contrast"])
+            entity_matches = sum(1 for term in meaningful_q_words if any(terms_match(term, cw) for cw in tokens_in_s))
+            if has_contrast_word or entity_matches >= 2 or s["section"].lower() in ["differences", "comparison", "difference"]:
+                cl = clean_leading_artifacts(txt).strip()
+                cl = re.sub(r"^[\s•·∙●○▪▫■□►▻▶▷⁃‣·\u2022\u25cf\u25cb\u25a0\u25a1\u25aa\u25ab\u25c6\u25c7\u25ba\u25bb\u25b6\u25b7\u2023\u2043\u2219\u00b7\uf0b7\-*.]+", "", cl).strip()
+                if len(cl.split()) >= 4 and cl not in diff_statements:
+                    diff_statements.append(cl)
+        if diff_statements:
+            return "**Key Differences (from Your Uploaded Notes):**\n\n" + "\n".join(f"- {s}" for s in diff_statements[:6])
+
+    # 5.6 Handle "Why / Cause / Reason" requests (e.g. "why blurry")
+    is_why_request = "why" in ql or "reason" in ql or "cause" in ql
+    if is_why_request:
+        why_statements = []
+        non_why_terms = [w for w in meaningful_q_words if w.lower() not in ["why", "reason", "cause"]]
+        for s in all_statements:
+            txt = s["text"].strip()
+            txt_low = txt.lower()
+            tokens_in_s = re.findall(r"\b[a-zA-Z0-9_-]+\b", txt_low)
+            has_causal_word = any(w in txt_low for w in ["because", "due to", "averages", "causes", "leads to", "results in", "reason", "why"])
+            has_topic_match = any(any(terms_match(term, cw) for cw in tokens_in_s) for term in non_why_terms)
+            if (has_causal_word and has_topic_match) or (has_topic_match and any(w in txt_low for w in ["loss", "mse", "blurry", "blur", "ambiguous", "distribution", "generates"])):
+                cl = clean_leading_artifacts(txt).strip()
+                cl = re.sub(r"^[\s•·∙●○▪▫■□►▻▶▷⁃‣·\u2022\u25cf\u25cb\u25a0\u25a1\u25aa\u25ab\u25c6\u25c7\u25ba\u25bb\u25b6\u25b7\u2023\u2043\u2219\u00b7\uf0b7\-*.]+", "", cl).strip()
+                if len(cl.split()) >= 4 and cl not in why_statements:
+                    why_statements.append(cl)
+        if why_statements:
+            topic_hdr = " ".join(w.title() for w in non_why_terms) or "Explanation"
+            return f"**Why {topic_hdr} (from Your Uploaded Notes):**\n\n" + "\n".join(f"- {s}" for s in why_statements[:4])
+
+    # 6. Concept / Definition / General grounded query
     GENERIC_RAG_WORDS = {
         "explain", "what", "why", "how", "define", "describe", "tell", "detail", "details",
         "step", "steps", "method", "methods", "algorithm", "algorithms", "concept", "concepts",
@@ -2851,15 +2912,16 @@ def build_deterministic_rag_answer(
     specific_query_terms = [w.lower() for w in meaningful_q_words if w.lower() not in GENERIC_RAG_WORDS and len(w) >= 3]
     if specific_query_terms:
         context_text_lower = " ".join(c.get("title", "") + " " + c.get("text", "") for c in context_chunks).lower()
-        has_specific_match = any(term in context_text_lower for term in specific_query_terms)
+        c_words = re.findall(r"\b[a-zA-Z0-9_-]+\b", context_text_lower)
+        has_specific_match = any(terms_match(term, cw) for cw in c_words for term in specific_query_terms)
 
         if not has_specific_match:
             for t in specific_query_terms:
-                if t in ACRONYM_SYMS and any(syn in context_text_lower for syn in ACRONYM_SYMS[t]):
+                if t in ACRONYM_SYMS and any(any(terms_match(syn, cw) for cw in c_words) for syn in ACRONYM_SYMS[t]):
                     has_specific_match = True
                     break
                 for acr, syns in ACRONYM_SYMS.items():
-                    if t in syns and (acr in context_text_lower or any(syn in context_text_lower for syn in syns)):
+                    if t in syns and (any(terms_match(acr, cw) for cw in c_words) or any(any(terms_match(syn, cw) for cw in c_words) for syn in syns)):
                         has_specific_match = True
                         break
 
@@ -2870,6 +2932,8 @@ def build_deterministic_rag_answer(
                     break
 
         if not has_specific_match:
+            if is_unrelated_subject_or_domain(query, context_chunks=context_chunks):
+                return "I'm CampusVerse's study assistant. I can help you with questions related to the academic notes uploaded here."
             return "This topic is not available in the uploaded notes. Please upload the relevant study material."
 
     expanded_q_terms = list(meaningful_q_words)
@@ -2946,9 +3010,15 @@ def build_deterministic_rag_answer(
         for s in all_statements:
             s_text = s["text"]
             s_lower = s_text.lower()
-            match_count = sum(1 for term in meaningful_q_words if re.search(r"\b" + re.escape(term) + r"\b", s_lower))
-            if s["section"].lower() == "overview" and not s["is_step"] and not s.get("is_item"):
+            tokens_in_s = re.findall(r"\b[a-zA-Z0-9_-]+\b", s_lower)
+            matched_terms = [term for term in meaningful_q_words if any(terms_match(term, cw) for cw in tokens_in_s)]
+            match_count = len(matched_terms)
+            if match_count == len(meaningful_q_words) and len(meaningful_q_words) > 1:
+                match_count += 5
+            elif match_count > 1:
                 match_count += 2
+            if s["section"].lower() == "overview" and not s["is_step"] and not s.get("is_item"):
+                match_count += 1
             if match_count > 0 and s["text"] != main_def:
                 scored_statements.append((match_count, s))
 
@@ -3122,14 +3192,7 @@ async def execute_rag_pipeline(
         if target_subject:
             effective_q = re.sub(pronoun_pattern, target_subject, effective_q, flags=re.IGNORECASE)
 
-    # 4. Check for unrelated subject or domain before retrieval (e.g. sports, movies, cooking, external exams)
-    if is_unrelated_subject_or_domain(clean_q, context_chunks=[], material_titles=material_titles):
-        return {
-            "answer": "I'm CampusVerse's study assistant. I can help you with questions related to the academic notes uploaded here.",
-            "sources": []
-        }
-
-    # 5. Retrieve context chunks from selected notes
+    # 4. Retrieve context chunks from selected notes (retrieval must ALWAYS happen before any relevance decision)
     chunks = await retrieve_context_chunks(
         query=effective_q,
         material_ids=material_ids,

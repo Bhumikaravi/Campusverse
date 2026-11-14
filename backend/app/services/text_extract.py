@@ -336,10 +336,10 @@ def extract_pdf_all_pages(buffer: bytes, max_pages: int = 150, document_id: str 
             pages_with_digital_text = sum(1 for p in raw_pages if len(p.split()) >= 4)
 
             needs_ocr_indices = []
-            if total_digital_words < 30 and pages_with_digital_text < 2 and potential_ocr_indices:
-                # Genuinely scanned document: run OCR on at most 4 pages to stay within strict HTTP response budget (<4s)
-                needs_ocr_indices = potential_ocr_indices[:4]
-                logger.info("PDF identified as scanned (digital words=%d). Applying OCR to first %d scanned pages.", total_digital_words, len(needs_ocr_indices))
+            if total_digital_words < 15 and pages_with_digital_text < 1 and potential_ocr_indices:
+                # Genuinely scanned document: run OCR on at most 2 pages to stay well within strict HTTP response budget (<2s)
+                needs_ocr_indices = potential_ocr_indices[:2]
+                logger.info("PDF identified as scanned (digital words=%d). Applying rapid OCR to first %d scanned pages.", total_digital_words, len(needs_ocr_indices))
             else:
                 logger.info("PDF has digital text (digital words=%d across %d pages). Bypassing OCR for rapid sub-second processing.", total_digital_words, pages_with_digital_text)
 

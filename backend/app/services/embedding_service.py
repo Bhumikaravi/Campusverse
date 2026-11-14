@@ -75,7 +75,7 @@ async def call_gemini_embedding(text: str) -> Optional[List[float]]:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=3.0) as client:
             resp = await client.post(url, json=payload)
             if resp.status_code == 200:
                 data = resp.json()
@@ -96,7 +96,7 @@ async def get_text_embedding(text: str) -> List[float]:
 
     return generate_local_embedding(text)
 
-def chunk_document_by_pages(pages_text: List[str], target_words: int = 150, overlap_words: int = 30) -> List[Dict[str, Any]]:
+def chunk_document_by_pages(pages_text: List[str], target_words: int = 350, overlap_words: int = 50) -> List[Dict[str, Any]]:
     """
     Partitions document text into coherent chunks, tracking exact page numbers.
     """
