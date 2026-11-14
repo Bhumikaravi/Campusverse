@@ -160,7 +160,7 @@ async def call_gemini_classification(text: str, title: str = "", filename: str =
     }
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=3.5) as client:
             resp = await client.post(url, json=payload)
             if resp.status_code == 200:
                 data = resp.json()

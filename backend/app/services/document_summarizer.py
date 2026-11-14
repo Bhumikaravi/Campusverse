@@ -427,7 +427,7 @@ async def call_gemini_summarizer(title: str, full_text: str, page_count: int, ma
             }
         }
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=6.0) as client:
             resp = await client.post(url, json=payload)
             if resp.status_code == 200:
                 data = resp.json()

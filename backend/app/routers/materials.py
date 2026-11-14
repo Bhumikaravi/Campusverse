@@ -62,6 +62,7 @@ from app.services.embedding_service import (
 )
 from app.services.chapter_summarizer import generate_document_chapter_summaries
 from app.storage.factory import get_storage
+from app.services.academic_validator import validate_document_relevance_sync, AcademicDocType
 
 router = APIRouter(prefix="/api/materials", tags=["Study Materials"])
 
@@ -333,7 +334,6 @@ async def generate_file_ai_summary(
     configured_max_words = maxWords or getattr(settings, "MAX_SUMMARY_WORDS", 500)
 
     # STRICT AI DOCUMENT RELEVANCE VALIDATION
-    from app.services.academic_validator import validate_document_relevance_sync
     val_rules = None
     try:
         from app.database import get_db
@@ -524,9 +524,20 @@ async def upload_material(
         )
 
     # FEATURE 1: Automatic branch and subject classification (Only for validated documents)
-    classification = await classify_document_content(full_text, title=detected_title, filename=orig_name)
-    predicted_branch = classification.get("branch", "")
-    predicted_subject = classification.get("subject", "")
+    # Fast-path: if department and subject are already detected/provided, skip redundant LLM re-classification
+    if department and subject and department != "Unable to classify" and subject != "Unable to classify":
+        predicted_branch = department.strip()
+        predicted_subject = subject.strip()
+        classification = {
+            "branch": predicted_branch,
+            "subject": predicted_subject,
+            "confidence": 1.0,
+            "method": "pre_classified"
+        }
+    else:
+        classification = await classify_document_content(full_text, title=detected_title, filename=orig_name)
+        predicted_branch = classification.get("branch", "")
+        predicted_subject = classification.get("subject", "")
 
     effective_dept = (department or (predicted_branch if predicted_branch != "Unable to classify" else chosen_cat) or chosen_cat).strip()
     effective_subj = (subject or (predicted_subject if predicted_subject != "Unable to classify" else chosen_cat) or chosen_cat).strip()
