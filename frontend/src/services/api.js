@@ -1,18 +1,21 @@
 import axios from "axios";
 
-// Configurable API Base URL (supports VITE_API_BASE_URL, VITE_API_URL, or relative /api via Vite proxy)
-let rawBase =
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  "/api";
+// Configurable API Base URL
+// In production, fallback to relative "/api" so requests go to the same origin if no external URL is set
+let rawBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+
+if (!rawBase || rawBase.includes("localhost:5000")) {
+  if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+    // We are on a deployed public URL (e.g. Railway or Render) -> use relative /api
+    rawBase = "/api";
+  } else {
+    rawBase = "http://localhost:5000/api";
+  }
+}
 
 rawBase = String(rawBase).trim().replace(/\/+$/, "");
-
-// If an absolute backend URL was provided (e.g. https://campusverse-api.onrender.com) without /api, append /api
-if (rawBase.startsWith("http://") || rawBase.startsWith("https://")) {
-  if (!rawBase.endsWith("/api")) {
-    rawBase = `${rawBase}/api`;
-  }
+if ((rawBase.startsWith("http://") || rawBase.startsWith("https://")) && !rawBase.endsWith("/api")) {
+  rawBase = `${rawBase}/api`;
 }
 
 const api = axios.create({
@@ -48,18 +51,14 @@ api.interceptors.response.use(
     if (!error.response || error.code === "ERR_NETWORK") {
       friendlyMessage = "Cannot connect to server. Please check your internet connection or verify the backend server is running.";
     } else if (error.response?.data?.detail) {
-      friendlyMessage = typeof error.response.data.detail === "string"
-        ? error.response.data.detail
-        : JSON.stringify(error.response.data.detail);
-    } else if (error.response?.status === 404) {
-      friendlyMessage = "Requested resource was not found.";
+      friendlyMessage = error.response.data.detail;
     } else if (error.response?.status === 403) {
-      friendlyMessage = "You do not have permission to perform this action.";
+      friendlyMessage = "Access forbidden. You do not have permission to perform this action.";
     } else if (error.response?.status >= 500) {
-      friendlyMessage = "Internal server error. Please try again shortly.";
+      friendlyMessage = "Server error occurred. Please try again later.";
     }
-    error.friendlyMessage = friendlyMessage;
 
+    error.errorMessage = friendlyMessage;
     return Promise.reject(error);
   }
 );
