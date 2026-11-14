@@ -148,7 +148,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error("Unhandled server exception on %s: %s", request.url.path, exc, exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "An unexpected internal server error occurred. Please try again later."}
+        content={"detail": f"Server processing error: {str(exc)}"}
     )
 
 # Routers
