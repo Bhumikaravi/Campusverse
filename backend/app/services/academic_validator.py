@@ -28,8 +28,10 @@ class AcademicDocType:
 
     # Strictly Prohibited / Non-Academic Categories (Section 1 & 3)
     CERTIFICATE = "CERTIFICATE"
+    INTERNSHIP_CERTIFICATE = "INTERNSHIP_CERTIFICATE"
     RESUME = "RESUME"
     RESUME_CV = "RESUME_CV"
+    JOB_APPLICATION = "JOB_APPLICATION"
     PLACEMENT_DOCUMENT = "PLACEMENT_DOCUMENT"
     PLACEMENT_RECRUITMENT = "PLACEMENT_RECRUITMENT"
     ID_IDENTITY_DOC = "ID_IDENTITY_DOC"
@@ -42,6 +44,10 @@ class AcademicDocType:
     INVOICE = "INVOICE"
     INVOICE_BILL = "INVOICE_BILL"
 
+    # Non-Academic Lifestyle, Food, Entertainment & Personal
+    COOKING_RECIPE = "COOKING_RECIPE"
+    NON_ACADEMIC_LIFESTYLE = "NON_ACADEMIC_LIFESTYLE"
+    EVENT_INVITATION = "EVENT_INVITATION"
     PERSONAL_DOCUMENT = "PERSONAL_DOCUMENT"
     PERSONAL_CORRESPONDENCE = "PERSONAL_CORRESPONDENCE"
     BUSINESS_MARKETING = "BUSINESS_MARKETING"
@@ -67,9 +73,11 @@ DOCUMENT_TYPE_LABELS = {
     AcademicDocType.EDUCATIONAL_REFERENCE: "Subject Reference & Study Guide",
     AcademicDocType.REFERENCE_MATERIAL: "Subject Reference & Study Guide",
     
-    AcademicDocType.CERTIFICATE: "Certificate (Internship / Participation / Course)",
+    AcademicDocType.CERTIFICATE: "Certificate (Course / Participation / Academic)",
+    AcademicDocType.INTERNSHIP_CERTIFICATE: "Internship Certificate & Employment Credential",
     AcademicDocType.RESUME: "Personal Resume / Curriculum Vitae",
     AcademicDocType.RESUME_CV: "Personal Resume / Curriculum Vitae",
+    AcademicDocType.JOB_APPLICATION: "Job Application & Employment Document",
     AcademicDocType.PLACEMENT_DOCUMENT: "Placement & Recruitment Document",
     AcademicDocType.PLACEMENT_RECRUITMENT: "Placement & Recruitment Document",
     AcademicDocType.ID_IDENTITY_DOC: "Government / Personal ID Document",
@@ -80,7 +88,10 @@ DOCUMENT_TYPE_LABELS = {
     AcademicDocType.BANK_STATEMENT: "Bank Statement & Financial Account",
     AcademicDocType.INVOICE: "Commercial Invoice & Billing Receipt",
     AcademicDocType.INVOICE_BILL: "Commercial Invoice & Billing Receipt",
-    
+
+    AcademicDocType.COOKING_RECIPE: "Cooking Recipe & Food Preparation Guide",
+    AcademicDocType.NON_ACADEMIC_LIFESTYLE: "Non-Academic Lifestyle Document (Food Menu / Shopping List / Travel / Diary)",
+    AcademicDocType.EVENT_INVITATION: "Event Invitation & Personal Notice",
     AcademicDocType.PERSONAL_DOCUMENT: "Personal Letter / Application",
     AcademicDocType.PERSONAL_CORRESPONDENCE: "Personal Letter / Application",
     AcademicDocType.BUSINESS_MARKETING: "Business Proposal / Marketing Material",
@@ -110,8 +121,10 @@ DEFAULT_ALLOWED_TYPES = [
 
 DEFAULT_RESTRICTED_TYPES = [
     AcademicDocType.CERTIFICATE,
+    AcademicDocType.INTERNSHIP_CERTIFICATE,
     AcademicDocType.RESUME,
     AcademicDocType.RESUME_CV,
+    AcademicDocType.JOB_APPLICATION,
     AcademicDocType.PLACEMENT_DOCUMENT,
     AcademicDocType.PLACEMENT_RECRUITMENT,
     AcademicDocType.ID_IDENTITY_DOC,
@@ -121,6 +134,9 @@ DEFAULT_RESTRICTED_TYPES = [
     AcademicDocType.BANK_STATEMENT,
     AcademicDocType.INVOICE,
     AcademicDocType.INVOICE_BILL,
+    AcademicDocType.COOKING_RECIPE,
+    AcademicDocType.NON_ACADEMIC_LIFESTYLE,
+    AcademicDocType.EVENT_INVITATION,
     AcademicDocType.PERSONAL_DOCUMENT,
     AcademicDocType.PERSONAL_CORRESPONDENCE,
     AcademicDocType.BUSINESS_MARKETING,
@@ -144,100 +160,94 @@ DEFAULT_ADMIN_RULES = {
 }
 
 # ========================================================
-# STUDENT-FACING REJECTION TEMPLATES (SECTION 6 ALIGNED)
+# STUDENT-FACING REJECTION TEMPLATES (STRICT FILTER ALIGNED)
 # ========================================================
 STUDENT_MESSAGES = {
-    AcademicDocType.CERTIFICATE: (
-        "Upload Rejected! This appears to be a certificate rather than academic study material. "
-        "CampusVerse only accepts lecture notes, textbooks, assignments and question papers."
-    ),
     AcademicDocType.RESUME: (
-        "Upload Rejected! Resumes and CVs are not accepted in the CampusVerse study-material library. "
-        "Please upload curriculum-related notes."
+        "Upload rejected. CampusVerse only accepts academic study materials. This document appears to be a personal resume."
     ),
     AcademicDocType.RESUME_CV: (
-        "Upload Rejected! Resumes and CVs are not accepted in the CampusVerse study-material library. "
-        "Please upload curriculum-related notes."
+        "Upload rejected. CampusVerse only accepts academic study materials. This document appears to be a personal resume."
+    ),
+    AcademicDocType.COOKING_RECIPE: (
+        "Upload rejected. This document contains cooking-related content rather than academic study material."
+    ),
+    AcademicDocType.INTERNSHIP_CERTIFICATE: (
+        "Upload rejected. Internship certificates and employment documents are not accepted as study materials."
+    ),
+    AcademicDocType.CERTIFICATE: (
+        "Upload rejected. Internship certificates and employment documents are not accepted as study materials."
+    ),
+    AcademicDocType.JOB_APPLICATION: (
+        "Upload rejected. Job applications and employment-related documents are not accepted as academic study materials."
     ),
     AcademicDocType.PLACEMENT_DOCUMENT: (
-        "Document Not Relevant! This file appears to be a placement or recruitment document. "
-        "Only academic learning resources are allowed."
+        "Upload rejected. Internship certificates and employment documents are not accepted as study materials."
     ),
     AcademicDocType.PLACEMENT_RECRUITMENT: (
-        "Document Not Relevant! This file appears to be a placement or recruitment document. "
-        "Only academic learning resources are allowed."
+        "Upload rejected. Internship certificates and employment documents are not accepted as study materials."
     ),
     AcademicDocType.FEE_RECEIPT: (
-        "Upload Rejected! This document has been identified as a college fee receipt or financial payment record, not academic study material. "
+        "Upload rejected. This document has been identified as a college fee receipt or financial payment record, not academic study material. "
         "CampusVerse accepts only relevant academic resources such as study notes, textbooks, question papers, assignments and educational materials. "
         "Please upload a valid study document."
     ),
     AcademicDocType.FINANCIAL_DOCUMENT: (
-        "Upload Rejected! Financial documents, payment receipts, invoices and bank statements are not permitted "
-        "in the CampusVerse academic study-material library."
+        "Upload rejected. Financial documents, payment receipts, invoices and bank statements are not permitted in the CampusVerse academic study-material library."
     ),
     AcademicDocType.PAYMENT_RECEIPT: (
-        "Upload Rejected! Financial documents, payment receipts, invoices and bank statements are not permitted "
-        "in the CampusVerse academic study-material library."
+        "Upload rejected. Financial documents, payment receipts, invoices and bank statements are not permitted in the CampusVerse academic study-material library."
     ),
     AcademicDocType.BANK_STATEMENT: (
-        "Upload Rejected! Financial documents, payment receipts, invoices and bank statements are not permitted "
-        "in the CampusVerse academic study-material library."
+        "Upload rejected. Financial documents, payment receipts, invoices and bank statements are not permitted in the CampusVerse academic study-material library."
     ),
     AcademicDocType.INVOICE: (
-        "Upload Rejected! Financial documents, payment receipts, invoices and bank statements are not permitted "
-        "in the CampusVerse academic study-material library."
+        "Upload rejected. Financial documents, payment receipts, invoices and bank statements are not permitted in the CampusVerse academic study-material library."
     ),
     AcademicDocType.INVOICE_BILL: (
-        "Upload Rejected! Financial documents, payment receipts, invoices and bank statements are not permitted "
-        "in the CampusVerse academic study-material library."
+        "Upload rejected. Financial documents, payment receipts, invoices and bank statements are not permitted in the CampusVerse academic study-material library."
     ),
-    AcademicDocType.SUBJECT_MISMATCH: (
-        "Subject Mismatch! The uploaded document does not match the selected subject ({subject}). "
-        "Please choose the appropriate subject."
+    AcademicDocType.NON_ACADEMIC_LIFESTYLE: (
+        "Upload rejected. CampusVerse only accepts academic study materials. Non-academic content (menus, shopping lists, travel itineraries, diaries) is not permitted."
     ),
-    AcademicDocType.CORRUPTED_OR_POOR_QUALITY: (
-        "Document Rejected! The uploaded study material contains excessive errors, corrupted text or unreadable content. "
-        "Please upload a clear and complete version."
-    ),
-    AcademicDocType.EMPTY_OR_UNREADABLE: (
-        "Document Rejected! The uploaded file is empty or contains unreadable content. "
-        "Please ensure the document contains clear, readable notes or textbook content and retry."
+    AcademicDocType.EVENT_INVITATION: (
+        "Upload rejected. CampusVerse only accepts academic study materials. Event invitations and personal letters are not accepted."
     ),
     AcademicDocType.ID_IDENTITY_DOC: (
-        "Upload Rejected! Identity cards and personal identification documents are strictly prohibited "
-        "on CampusVerse for student privacy and security. Please upload study notes."
+        "Upload rejected. Identity cards and personal identification documents are strictly prohibited on CampusVerse for student privacy and security. Please upload study notes."
     ),
     AcademicDocType.PERSONAL_DOCUMENT: (
-        "Upload Rejected! Personal letters, applications, and non-academic correspondence do not contain "
-        "study material. Please upload curriculum-focused learning resources."
+        "Upload rejected. CampusVerse only accepts academic study materials. This document appears to be a random personal or unrelated document."
     ),
     AcademicDocType.PERSONAL_CORRESPONDENCE: (
-        "Upload Rejected! Personal letters, applications, and non-academic correspondence do not contain "
-        "study material. Please upload curriculum-focused learning resources."
+        "Upload rejected. CampusVerse only accepts academic study materials. Personal correspondence and applications are not accepted."
     ),
     AcademicDocType.BUSINESS_MARKETING: (
-        "Upload Rejected! Business proposals and marketing materials are not academic learning materials. "
-        "Please upload university notes or course references."
+        "Upload rejected. Business proposals and marketing materials are not academic learning materials. Please upload university notes or course references."
     ),
     AcademicDocType.ADMINISTRATIVE_DOCUMENT: (
-        "Upload Rejected! Administrative forms, submission confirmations and non-academic documents cannot be published on CampusVerse. "
-        "Please upload your actual course study materials."
+        "Upload rejected. Administrative forms, submission confirmations and non-academic documents cannot be published on CampusVerse. Please upload your actual course study materials."
     ),
     AcademicDocType.NON_ACADEMIC: (
-        "Upload Rejected! This document does not contain academic study notes or educational material. "
-        "Please upload genuine subject notes, question papers, or course materials."
+        "Upload rejected. CampusVerse only accepts academic study materials. This document appears to be a random personal or unrelated document."
     ),
     AcademicDocType.UNRELATED_NON_ACADEMIC: (
-        "Upload Rejected! This document does not contain academic study notes or educational material. "
-        "Please upload genuine subject notes, question papers, or course materials."
+        "Upload rejected. CampusVerse only accepts academic study materials. This document appears to be a random personal or unrelated document."
+    ),
+    AcademicDocType.SUBJECT_MISMATCH: (
+        "Subject Mismatch! The uploaded document does not match the selected subject ({subject}). Please choose the appropriate subject."
+    ),
+    AcademicDocType.CORRUPTED_OR_POOR_QUALITY: (
+        "Upload rejected. The uploaded study material contains excessive errors, corrupted text or unreadable content. Please upload a clear and complete version."
+    ),
+    AcademicDocType.EMPTY_OR_UNREADABLE: (
+        "Upload rejected. The uploaded file is empty or contains unreadable content. Please ensure the document contains clear, readable notes or textbook content and retry."
     ),
     "APPROVED": (
         "Academic Document Verified! The study material has been analyzed and confirmed as genuine academic content."
     ),
     "NEEDS_REVIEW": (
-        "Verification Pending! We could not confidently determine whether this document is suitable for academic use. "
-        "It has been sent for admin review."
+        "Verification Pending! We could not confidently determine whether this document contains sufficient academic material or if it contains mixed personal content. It has been sent for admin review."
     )
 }
 
@@ -592,6 +602,41 @@ PLACEMENT_OFFER_PATTERNS = [
     r"\bterms\s+and\s+conditions\s+of\s+employment\b"
 ]
 
+# 8. Cooking Recipes & Food Preparation Patterns
+COOKING_RECIPE_PATTERNS = [
+    r"\b(recipe|ingredients|cooking\s+time|prep\s+time|servings|serves\s*\d+)\b",
+    r"\b(tablespoon[s]?|teaspoon[s]?|tbsp\.?|tsp\.?|cups?\s+of)\b",
+    r"\b(preheat\s+(the\s+)?oven|bake\s+for|simmer\s+for|boil\s+for|stir\s+well|season\s+with\s+salt)\b",
+    r"\b(pinch\s+of\s+salt|finely\s+chopped|olive\s+oil|garlic\s+cloves?|flour|sugar|butter|baking\s+powder)\b",
+    r"\b(cook\s+over\s+medium\s+heat|bring\s+to\s+a\s+boil|garnish\s+with|golden\s+brown)\b",
+    r"\b(chocolate\s+cake|pasta\s+sauce|curry\s+powder|chicken\s+breast|pan-fry|saut[eé])\b"
+]
+
+# 9. Non-Academic Lifestyle Patterns (Menus, Shopping Lists, Travel Itineraries, Personal Diaries)
+LIFESTYLE_NON_ACADEMIC_PATTERNS = [
+    r"\b(food\s+menu|restaurant\s+menu|starters|main\s+course|desserts?|beverages|drinks\s+menu)\b",
+    r"\b(shopping\s+list|grocery\s+list|to-buy\s+list|items\s+to\s+buy)\b",
+    r"\b(travel\s+itinerary|trip\s+itinerary|flight\s+booking|hotel\s+reservation|boarding\s+pass|sightseeing\s+tour)\b",
+    r"\bday\s*\d+\s*:\s*(hotel|flight|arrival|tour|sightseeing|checkout)\b",
+    r"\b(dear\s+diary|personal\s+diary|today\s+was\s+a\s+(good|bad|busy|wonderful)\s+day|my\s+personal\s+diary)\b",
+    r"\b(movie\s+ticket|concert\s+ticket|cinema\s+hall|entertainment\s+show)\b"
+]
+
+# 10. Job Applications, Cover Letters, and Experience Letters
+JOB_APPLICATION_PATTERNS = [
+    r"\b(job\s+application|cover\s+letter|application\s+for\s+the\s+(post|position|role)\s+of)\b",
+    r"\b(applying\s+for\s+the\s+(post|position|role|job)|i\s+am\s+writing\s+to\s+apply)\b",
+    r"\b(please\s+find\s+my\s+enclosed\s+(resume|cv)|consider\s+my\s+candidature|consider\s+my\s+application)\b",
+    r"\b(experience\s+letter|relieving\s+letter|service\s+certificate|internship\s+application)\b"
+]
+
+# 11. Event Invitations
+EVENT_INVITATION_PATTERNS = [
+    r"\b(cordially\s+invites?\s+you|invitation\s+to\s+attend|you\s+are\s+cordially\s+invited)\b",
+    r"\b(wedding\s+invitation|birthday\s+party|anniversary\s+celebration|save\s+the\s+date)\b",
+    r"\brsvp\s*[:\n]\b"
+]
+
 # Common English & academic vocabulary for readability and quality sanity checks
 COMMON_ACADEMIC_VOCAB = {
     "the", "be", "to", "of", "and", "a", "in", "that", "have", "i", "it", "for", "not", "on", "with",
@@ -834,6 +879,26 @@ def extract_document_features(text: str) -> Dict[str, Any]:
         if re.search(pat, lower_text, re.IGNORECASE):
             receipt_signals.append(pat.replace(r"\b", "").replace(r"\s+", " ").strip())
 
+    recipe_signals = []
+    for pat in COOKING_RECIPE_PATTERNS:
+        if re.search(pat, lower_text, re.IGNORECASE):
+            recipe_signals.append(pat.replace(r"\b", "").replace(r"\s+", " ").strip())
+
+    lifestyle_signals = []
+    for pat in LIFESTYLE_NON_ACADEMIC_PATTERNS:
+        if re.search(pat, lower_text, re.IGNORECASE):
+            lifestyle_signals.append(pat.replace(r"\b", "").replace(r"\s+", " ").strip())
+
+    job_app_signals = []
+    for pat in JOB_APPLICATION_PATTERNS:
+        if re.search(pat, lower_text, re.IGNORECASE):
+            job_app_signals.append(pat.replace(r"\b", "").replace(r"\s+", " ").strip())
+
+    invitation_signals = []
+    for pat in EVENT_INVITATION_PATTERNS:
+        if re.search(pat, lower_text, re.IGNORECASE):
+            invitation_signals.append(pat.replace(r"\b", "").replace(r"\s+", " ").strip())
+
     return {
         "conferral_signals": conferral_signals,
         "issuance_signals": issuance_signals,
@@ -843,6 +908,10 @@ def extract_document_features(text: str) -> Dict[str, Any]:
         "academic_signals": academic_signals,
         "cyber_study_signals": cyber_study_signals,
         "receipt_signals": receipt_signals,
+        "recipe_signals": recipe_signals,
+        "lifestyle_signals": lifestyle_signals,
+        "job_app_signals": job_app_signals,
+        "invitation_signals": invitation_signals,
         "is_studying_certificates": is_studying_certificates,
         "is_placement_question_bank": is_placement_question_bank
     }
@@ -937,22 +1006,71 @@ def detect_document_type_from_content(
                 semantic_profile
             )
 
-    # Check 3: Resume / CV Detection (Only if NOT an academic module/notes with clear academic keywords)
+    # Check 2b: Cooking Recipes & Culinary Instructions
+    recipe_matches = [p for p in COOKING_RECIPE_PATTERNS if re.search(p, lower_text, re.IGNORECASE)]
+    has_recipe_terms = any(k in lower_text for k in ["ingredients", "cooking time", "prep time", "tablespoon", "teaspoon", "preheat oven", "servings:", "serves ", "recipe:"])
+    if (has_recipe_terms and len(recipe_matches) >= 2) or len(recipe_matches) >= 3 or ("recipe" in lower_text and ("ingredients" in lower_text or "tablespoon" in lower_text or "bake for" in lower_text)):
+        semantic_profile["overall_purpose"] = "Culinary cooking recipe containing ingredients, food preparation instructions, and culinary steps."
+        return (
+            AcademicDocType.COOKING_RECIPE,
+            0.98,
+            ["cooking_recipe_pattern", *[p[:25] for p in recipe_matches[:3]]],
+            "Detected cooking recipe with culinary ingredients and food preparation steps.",
+            semantic_profile
+        )
+
+    # Check 2c: Non-Academic Lifestyle (Food Menus, Shopping Lists, Travel Itineraries, Personal Diaries)
+    lifestyle_matches = [p for p in LIFESTYLE_NON_ACADEMIC_PATTERNS if re.search(p, lower_text, re.IGNORECASE)]
+    if lifestyle_matches:
+        semantic_profile["overall_purpose"] = "Non-academic lifestyle document (food menu, shopping list, travel itinerary, or personal diary)."
+        return (
+            AcademicDocType.NON_ACADEMIC_LIFESTYLE,
+            0.96,
+            ["non_academic_lifestyle_pattern", *[p[:30] for p in lifestyle_matches[:3]]],
+            "Detected non-academic lifestyle content (food menu, shopping list, travel itinerary, or personal diary).",
+            semantic_profile
+        )
+
+    # Check 2d: Job Applications, Cover Letters, Experience Letters
+    job_app_matches = [p for p in JOB_APPLICATION_PATTERNS if re.search(p, lower_text, re.IGNORECASE)]
+    if job_app_matches:
+        semantic_profile["overall_purpose"] = "Job application, cover letter, or employment correspondence."
+        return (
+            AcademicDocType.JOB_APPLICATION,
+            0.96,
+            ["job_application_pattern", *[p[:30] for p in job_app_matches[:3]]],
+            "Detected formal job application, cover letter, or employment correspondence.",
+            semantic_profile
+        )
+
+    # Check 2e: Event Invitations & Social Notices
+    invitation_matches = [p for p in EVENT_INVITATION_PATTERNS if re.search(p, lower_text, re.IGNORECASE)]
+    if invitation_matches:
+        semantic_profile["overall_purpose"] = "Personal or social event invitation."
+        return (
+            AcademicDocType.EVENT_INVITATION,
+            0.95,
+            ["event_invitation_pattern", *[p[:30] for p in invitation_matches[:2]]],
+            "Detected personal or event invitation letter.",
+            semantic_profile
+        )
+
+    # Check 3: Resume / CV Detection (Examining actual content, not filename)
     academic_keywords_in_doc = sum(1 for p in ACADEMIC_INDICATORS if re.search(p, lower_text, re.IGNORECASE))
-    is_module_or_notes = bool(re.search(r"\b(module|chapter|unit|lecture|notes|syllabus|tutorial|assignment)\b", filename.lower()))
+    has_in_content_academic_heading = bool(re.search(r"\b(module\s*[-:\d]|chapter\s*[-:\d]|unit\s*[-:\d]|lecture\s*[-:\d]|syllabus)\b", lower_text))
     
     resume_matches = [p for p in RESUME_KEYWORDS if re.search(p, lower_text, re.IGNORECASE)]
     header_count = sum(1 for h in RESUME_SECTION_HEADERS if re.search(r"\b" + re.escape(h) + r"\b", lower_text))
-    has_resume_keyword = any(k in lower_text for k in ["curriculum vitae", "resume", "bio-data", "career objective"])
-    has_contact_and_edu = ("education" in lower_text and ("work experience" in lower_text or "employment history" in lower_text) and ("phone" in lower_text or "email" in lower_text or "@" in lower_text))
+    has_resume_keyword = any(k in lower_text for k in ["curriculum vitae", "resume", "bio-data", "career objective", "professional summary"])
+    has_contact_and_edu = ("education" in lower_text and ("work experience" in lower_text or "employment history" in lower_text) and ("phone" in lower_text or "email" in lower_text or "@" in lower_text or "linkedin" in lower_text or "github" in lower_text))
 
     # Real resumes have explicit resume keywords or contact info paired with work experience headers, and lack pedagogical module structure
     is_genuine_resume = False
     if has_resume_keyword and (header_count >= 2 or len(resume_matches) >= 2):
         is_genuine_resume = True
-    elif has_contact_and_edu and header_count >= 4 and not is_module_or_notes and academic_keywords_in_doc < 3:
+    elif has_contact_and_edu and header_count >= 3 and not has_in_content_academic_heading:
         is_genuine_resume = True
-    elif len(resume_matches) >= 3 and header_count >= 3 and not is_module_or_notes and academic_keywords_in_doc < 3:
+    elif len(resume_matches) >= 3 and header_count >= 3 and not has_in_content_academic_heading:
         is_genuine_resume = True
 
     if is_genuine_resume:
@@ -1095,9 +1213,15 @@ def detect_document_type_from_content(
             cert_reason = "Detected scanned credential document verified via OCR extraction."
 
         if is_cert:
-            semantic_profile["overall_purpose"] = "Official credential conferral certifying individual course completion, achievement, or event participation."
+            is_internship = bool(re.search(r"\b(internship|intern\b|industrial\s+training|summer\s+training|practical\s+training)\b", lower_text))
+            doc_type = AcademicDocType.INTERNSHIP_CERTIFICATE if is_internship else AcademicDocType.CERTIFICATE
+            semantic_profile["overall_purpose"] = (
+                "Official internship credential certifying completion of industrial / practical training."
+                if is_internship else
+                "Official credential conferral certifying individual course completion, achievement, or event participation."
+            )
             return (
-                AcademicDocType.CERTIFICATE,
+                doc_type,
                 0.97,
                 ["certificate_credential_markers", *(feats["conferral_signals"] + feats["signature_signals"] + feats["issuance_signals"])[:4]],
                 cert_reason,
@@ -1244,6 +1368,27 @@ def detect_document_type_from_content(
     has_instructional_content = (
         any(v in lower_text for v in ["is defined as", "refers to", "consists of", "is the process of", "algorithm", "formula", "derivation", "theorem", "methodology", "complexity", "time complexity", "space complexity"])
     )
+
+    # Check for Mixed Document (Personal / Non-academic reflections mixed with academic notes)
+    # Section 4: "If a document contains both academic and unrelated content:
+    # Evaluate the proportion of meaningful academic content.
+    # Reject documents primarily containing unrelated material.
+    # For ambiguous cases, mark the document as 'Needs Review' rather than automatically approving it."
+    has_personal_musings = bool(re.search(
+        r"\b(dear\s+diary|today\s+i\s+went|my\s+personal\s+thoughts|today\s+i\s+felt|my\s+daily\s+routine|"
+        r"my\s+favorite\s+movies|personal\s+journal|my\s+weekend|my\s+personal\s+life|personal\s+diary|"
+        r"woke\s+up\s+and\s+felt|my\s+personal\s+blog|personal\s+reflections?)\b",
+        lower_text
+    ))
+    if has_personal_musings:
+        semantic_profile["overall_purpose"] = "Mixed document containing both personal reflections and academic study notes."
+        return (
+            AcademicDocType.STUDY_NOTES,
+            0.50,  # Confidence below threshold (0.70) -> evaluates to NEEDS_REVIEW
+            ["mixed_academic_and_personal_content"],
+            "Document contains a mix of personal non-academic reflections and academic study notes. Needs review.",
+            semantic_profile
+        )
 
     if has_academic_indicators or has_pedagogical_structure or has_instructional_content:
         multi_page_desc = f" ({page_count} pages analyzed)" if page_count > 1 else ""
@@ -1410,12 +1555,18 @@ CRITICAL CLASSIFICATION RULES:
    - Accept only genuine academic study notes, textbooks, question papers, syllabus, worksheets, and lab records.
    - Any document that lacks academic study content must be REJECTED!
 6. REJECT RESUMES, IDS, INVOICES, AND MARKETING PROPOSALS.
-7. QUALITY CHECK: Minor spelling/grammar errors should be tolerated. Severe gibberish or corrupted noise should be rejected.
+7. STRICTLY REJECT COOKING RECIPES, MENUS, SHOPPING LISTS, DIARIES, AND TRAVEL ITINERARIES:
+   - Recipes, restaurant menus, shopping lists, diaries, and travel itineraries are non-academic content -> REJECT as COOKING_RECIPE or NON_ACADEMIC_LIFESTYLE!
+8. STRICTLY REJECT INTERNSHIP CERTIFICATES AND JOB APPLICATIONS:
+   - Internship certificates and employment documents are not accepted as study materials -> REJECT as INTERNSHIP_CERTIFICATE or JOB_APPLICATION!
+9. HANDLE MIXED DOCUMENTS:
+   - If a document contains both academic and unrelated content, evaluate proportion. Ambiguous cases must be marked as NEEDS_REVIEW.
+10. QUALITY CHECK: Minor spelling/grammar errors should be tolerated. Severe gibberish or corrupted noise should be rejected.
 
 Respond ONLY with a valid JSON object matching this exact schema:
 {{
   "is_academic": boolean,
-  "document_type": "LECTURE_NOTES" | "TEXTBOOK_CHAPTER" | "QUESTION_PAPER" | "ASSIGNMENT_WORKSHEET" | "LAB_MANUAL_RECORD" | "ACADEMIC_PRESENTATION" | "REFERENCE_MATERIAL" | "RESUME_CV" | "CERTIFICATE" | "PLACEMENT_RECRUITMENT" | "ID_IDENTITY_DOC" | "INVOICE_BILL" | "PERSONAL_CORRESPONDENCE" | "BUSINESS_MARKETING" | "UNRELATED_NON_ACADEMIC" | "EMPTY_OR_UNREADABLE" | "CORRUPTED_OR_POOR_QUALITY" | "SUBJECT_MISMATCH",
+  "document_type": "LECTURE_NOTES" | "TEXTBOOK_CHAPTER" | "QUESTION_PAPER" | "ASSIGNMENT_WORKSHEET" | "LAB_MANUAL_RECORD" | "ACADEMIC_PRESENTATION" | "REFERENCE_MATERIAL" | "RESUME_CV" | "CERTIFICATE" | "INTERNSHIP_CERTIFICATE" | "JOB_APPLICATION" | "PLACEMENT_RECRUITMENT" | "ID_IDENTITY_DOC" | "INVOICE_BILL" | "FEE_RECEIPT" | "COOKING_RECIPE" | "NON_ACADEMIC_LIFESTYLE" | "EVENT_INVITATION" | "PERSONAL_CORRESPONDENCE" | "BUSINESS_MARKETING" | "UNRELATED_NON_ACADEMIC" | "EMPTY_OR_UNREADABLE" | "CORRUPTED_OR_POOR_QUALITY" | "SUBJECT_MISMATCH",
   "validation_status": "APPROVED" | "REJECTED" | "NEEDS_REVIEW",
   "overall_purpose": "1-2 sentence description explaining the document's fundamental objective",
   "detected_important_phrases": ["phrase 1", "phrase 2"],

@@ -857,6 +857,12 @@ async def get_material_detail(
     if not mat:
         raise HTTPException(status_code=404, detail="Study material not found.")
 
+    if mat.get("status") in [MATERIAL_STATUS.REJECTED, MATERIAL_STATUS.ADMIN_REJECTED]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Upload rejected. CampusVerse only accepts academic study materials. Rejected documents cannot be previewed or downloaded."
+        )
+
     is_owner = current_user and str(mat.get("uploader")) == str(current_user["id"])
     is_approved = mat.get("status") == MATERIAL_STATUS.ADMIN_APPROVED or (
         settings.AUTO_PUBLISH_AI_APPROVED and mat.get("status") == MATERIAL_STATUS.AI_APPROVED
@@ -878,6 +884,12 @@ async def get_material_preview(
     mat = await db["materials"].find_one(query)
     if not mat:
         raise HTTPException(status_code=404, detail="Study material not found.")
+
+    if mat.get("status") in [MATERIAL_STATUS.REJECTED, MATERIAL_STATUS.ADMIN_REJECTED]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Upload rejected. CampusVerse only accepts academic study materials. Rejected documents cannot be previewed or downloaded."
+        )
 
     is_owner = current_user and str(mat.get("uploader")) == str(current_user["id"])
     is_approved = mat.get("status") == MATERIAL_STATUS.ADMIN_APPROVED or (
@@ -910,6 +922,12 @@ async def get_inline_file(
     mat = await db["materials"].find_one(query)
     if not mat:
         raise HTTPException(status_code=404, detail="File not found.")
+
+    if mat.get("status") in [MATERIAL_STATUS.REJECTED, MATERIAL_STATUS.ADMIN_REJECTED]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Upload rejected. CampusVerse only accepts academic study materials. Rejected documents cannot be previewed or downloaded."
+        )
 
     is_owner = current_user and str(mat.get("uploader")) == str(current_user["id"])
     is_approved = mat.get("status") == MATERIAL_STATUS.ADMIN_APPROVED or (
@@ -989,6 +1007,12 @@ async def download_material(
     mat = await db["materials"].find_one(query)
     if not mat:
         raise HTTPException(status_code=404, detail="File not found.")
+
+    if mat.get("status") in [MATERIAL_STATUS.REJECTED, MATERIAL_STATUS.ADMIN_REJECTED]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Upload rejected. CampusVerse only accepts academic study materials. Rejected documents cannot be previewed or downloaded."
+        )
 
     is_owner = current_user and str(mat.get("uploader")) == str(current_user["id"])
     is_approved = mat.get("status") == MATERIAL_STATUS.ADMIN_APPROVED or (

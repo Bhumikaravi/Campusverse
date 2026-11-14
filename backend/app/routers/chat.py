@@ -33,7 +33,7 @@ async def get_available_chat_materials(
     docs = []
     
     if is_admin:
-        cursor = db["materials"].find({}).sort([("createdAt", -1)]).limit(100)
+        cursor = db["materials"].find({"status": {"$nin": ["REJECTED", "ADMIN_REJECTED"]}}).sort([("createdAt", -1)]).limit(100)
         docs = await cursor.to_list(length=100)
     else:
         user_id = str(current_user.get("id", ""))
@@ -55,18 +55,23 @@ async def get_available_chat_materials(
             ])
 
         query = {
-            "$or": [
-                {"status": {"$in": ["ADMIN_APPROVED", "AI_APPROVED", "APPROVED", "QUALITY_CHECK_PASSED", "Completed", "PENDING", "NEEDS_REVIEW"]}},
-                *uploader_clauses
+            "$and": [
+                {"status": {"$nin": ["REJECTED", "ADMIN_REJECTED"]}},
+                {
+                    "$or": [
+                        {"status": {"$in": ["ADMIN_APPROVED", "AI_APPROVED", "APPROVED", "QUALITY_CHECK_PASSED", "Completed", "PENDING", "NEEDS_REVIEW"]}},
+                        *uploader_clauses
+                    ]
+                }
             ]
         }
         cursor = db["materials"].find(query).sort([("createdAt", -1)]).limit(100)
         docs = await cursor.to_list(length=100)
 
-        # Fallback: if no documents match strict filter, return any study materials
+        # Fallback: if no documents match strict filter, return any approved study materials
         # in the platform so students are never blocked with an empty context list
         if not docs:
-            cursor = db["materials"].find({}).sort([("createdAt", -1)]).limit(100)
+            cursor = db["materials"].find({"status": {"$nin": ["REJECTED", "ADMIN_REJECTED"]}}).sort([("createdAt", -1)]).limit(100)
             docs = await cursor.to_list(length=100)
     
     items = []
@@ -96,9 +101,22 @@ async def create_chat_session(
     # Fetch document titles for session header
     obj_ids = [ObjectId(m) for m in material_ids if ObjectId.is_valid(m)]
     id_clauses = [{"_id": {"$in": obj_ids}}] if obj_ids else []
-    id_clauses.extend([{"id": {"$in": material_ids}}, {"documentId": {"$in": material_ids}}])
+    id_clauses.extend([
+        {"_id": {"$in": material_ids}},
+        {"id": {"$in": material_ids}},
+        {"documentId": {"$in": material_ids}}
+    ])
     cursor = db["materials"].find({"$or": id_clauses} if len(id_clauses) > 1 else id_clauses[0] if id_clauses else {})
     found_docs = await cursor.to_list(length=max(10, len(material_ids)))
+
+    # Prevent rejected materials from being used in chatbot
+    for d in found_docs:
+        if d.get("status") in ["REJECTED", "ADMIN_REJECTED"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Upload rejected. CampusVerse only accepts academic study materials. '{d.get('title', 'Document')}' was rejected as non-academic content and cannot be accessed via chatbot."
+            )
+
     titles = [d.get("title", "Study Note") for d in found_docs if d.get("title")]
     if not titles:
         titles = ["Academic Study Notes"]

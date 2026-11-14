@@ -65,7 +65,7 @@ async def retrieve_context_chunks(
         for mid in valid_ids:
             try:
                 m_doc = await db["materials"].find_one({"_id": ObjectId(mid) if ObjectId.is_valid(mid) else mid})
-                if m_doc:
+                if m_doc and m_doc.get("status") not in ["REJECTED", "ADMIN_REJECTED"]:
                     if m_doc.get("storageKey"):
                         buf = await storage.download(m_doc["storageKey"])
                         pages = extract_document_pages(buf, m_doc.get("extension", ".pdf"))
