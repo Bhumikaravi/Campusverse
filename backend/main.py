@@ -101,11 +101,7 @@ app = FastAPI(
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
-        # Content security: allow embedding in frontend iframe for PDF preview
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Content-Security-Policy"] = (
-            f"default-src 'none'; frame-ancestors 'self' https://*.vercel.app {' '.join(settings.cors_origins)};"
-        )
         if settings.is_production:
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
