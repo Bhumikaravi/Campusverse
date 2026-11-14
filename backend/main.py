@@ -169,6 +169,18 @@ app.include_router(study_buddy_router)
 app.include_router(guardrails_router)
 app.include_router(recognition_router)
 
+@app.get("/health")
+@app.get("/api/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "service": "campusverse-fastapi",
+        "version": "2.4.0",
+        "rag_engine": "v2-shorthand-and-applications-supported",
+        "storage": settings.STORAGE_PROVIDER,
+        "moderation": "gemini" if settings.GEMINI_API_KEY else "rule-based-fallback"
+    }
+
 # Mount built React frontend static files if available
 import os
 from pathlib import Path
@@ -184,22 +196,12 @@ if frontend_dist.exists() and (frontend_dist / "index.html").exists():
 
     @app.get("/{full_path:path}")
     async def serve_react_frontend(full_path: str):
-        if full_path.startswith("api/") or full_path == "health" or full_path == "docs" or full_path == "openapi.json":
+        if full_path.startswith("api/") or full_path == "docs" or full_path == "openapi.json":
             return JSONResponse(status_code=404, content={"detail": "Not found"})
         target_file = frontend_dist / full_path
         if target_file.is_file():
             return FileResponse(str(target_file))
         return FileResponse(str(frontend_dist / "index.html"))
-
-@app.get("/health")
-@app.get("/api/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "service": "campusverse-fastapi",
-        "storage": settings.STORAGE_PROVIDER,
-        "moderation": "gemini" if settings.GEMINI_API_KEY else "rule-based-fallback"
-    }
 
 if __name__ == "__main__":
     import uvicorn
