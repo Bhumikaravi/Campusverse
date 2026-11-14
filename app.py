@@ -1,23 +1,23 @@
-import streamlit as st
 import os
 import sys
 from pathlib import Path
-import tempfile
 
-# Add backend directory to sys.path so we can import services directly
+# Add backend directory to sys.path at the very top before anything else
 ROOT_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = ROOT_DIR / "backend"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+import streamlit as st
+import tempfile
+
 from app.services.academic_validator import (
-    validate_document_deep_analysis,
+    validate_document_relevance_sync,
     AcademicDocType,
-    ValidationDecision,
-    format_student_rejection_message
+    STUDENT_MESSAGES
 )
-from app.services.extractor import extract_text_and_meta
-from app.services.classifier import classify_document, categorize_academic_level
+from app.services.classifier import classify_document_content
+from app.services.text_extract import extract_document_text
 
 st.set_page_config(
     page_title="CampusVerse — AI Study Material Portal",
@@ -138,28 +138,31 @@ if selected_page == "📤 Upload & Verify Material":
             file_bytes = uploaded_file.getvalue()
             filename = uploaded_file.name
             
-            # Step 1: Extract Text
+            # Step 1: Extract Text using robust extraction service
             ext = Path(filename).suffix.lower()
             with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
                 tmp.write(file_bytes)
                 tmp_path = tmp.name
                 
             try:
-                extracted = extract_text_and_meta(tmp_path, filename)
-                raw_text = extracted.get("raw_text", "")
-                word_count = extracted.get("word_count", 0)
-                pages = extracted.get("page_count", 1)
+                extracted = extract_document_text(tmp_path, filename)
+                raw_text = extracted.text or ""
+                word_count = extracted.word_count or len(raw_text.split())
+                pages = extracted.page_count or 1
+            except Exception as ex:
+                raw_text = file_bytes.decode("utf-8", errors="ignore")
+                word_count = len(raw_text.split())
+                pages = 1
             finally:
                 if os.path.exists(tmp_path):
                     os.remove(tmp_path)
             
             # Step 2: Strict Deep Analysis
-            val_result = validate_document_deep_analysis(
+            val_result = validate_document_relevance_sync(
                 document_content=raw_text,
                 selected_subject=target_subject if target_subject else "General Studies",
                 filename=filename,
-                page_count=pages,
-                strict_mode=True
+                page_count=pages
             )
             
             decision = val_result.get("decision")
@@ -190,7 +193,7 @@ if selected_page == "📤 Upload & Verify Material":
                     st.markdown(f"**Quality Score:** `{val_result.get('quality_score', 0.95):.2f}` | **Readability:** High Confidence")
                     
                     # Auto-segregate discipline & subject
-                    classification = classify_document(raw_text)
+                    classification = classify_document_content(raw_text, filename=filename)
                     auto_discipline = classification.get("discipline", "General Academic")
                     auto_subject = classification.get("subject", target_subject or "Academic Notes")
                     
