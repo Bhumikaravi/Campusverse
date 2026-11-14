@@ -83,9 +83,9 @@ export default function ChatWithNotes() {
         if (initialMaterialId) {
           const match = mats.find((m) => m.id === initialMaterialId);
           if (match) setSelectedMaterialIds([match.id]);
-          else if (mats.length > 0) setSelectedMaterialIds([mats[0].id]);
+          else if (mats.length > 0) setSelectedMaterialIds(mats.map((m) => m.id));
         } else if (mats.length > 0) {
-          setSelectedMaterialIds((prev) => (prev.length > 0 ? prev : [mats[0].id]));
+          setSelectedMaterialIds((prev) => (prev.length > 0 ? prev : mats.map((m) => m.id)));
         }
       })
       .catch((err) => {
@@ -261,9 +261,26 @@ export default function ChatWithNotes() {
                   <Sparkles size={13} />
                 </button>
               </div>
-              <p className="text-[11px] text-gray-500">
-                Choose documents for the AI to retrieve answers from:
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] text-gray-500">
+                  Choose documents for the AI to retrieve answers from:
+                </p>
+                {availableMaterials.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedMaterialIds.length === availableMaterials.length) {
+                        setSelectedMaterialIds([]);
+                      } else {
+                        setSelectedMaterialIds(availableMaterials.map((m) => m.id));
+                      }
+                    }}
+                    className="text-[10px] text-brand-700 font-bold hover:underline shrink-0 ml-1"
+                  >
+                    {selectedMaterialIds.length === availableMaterials.length ? "Deselect All" : "Select All"}
+                  </button>
+                )}
+              </div>
 
               {loadingMaterials ? (
                 <Loader label="Loading materials..." size="sm" />

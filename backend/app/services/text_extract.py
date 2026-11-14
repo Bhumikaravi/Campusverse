@@ -311,7 +311,7 @@ def extract_pdf_all_pages(buffer: bytes, max_pages: int = 150, document_id: str 
 
             # Phase 1: Rapid digital text extraction across all pages (<0.1s for whole document)
             raw_pages = []
-            needs_ocr_indices = []
+            potential_ocr_indices = []
 
             for page_idx in range(total_pages):
                 page_num = page_idx + 1
@@ -323,12 +323,25 @@ def extract_pdf_all_pages(buffer: bytes, max_pages: int = 150, document_id: str 
                     # Check if page has minimal text and actually contains raster images
                     has_images = len(page.get_images()) > 0
                     if word_count < 5 and (has_images or word_count == 0) and ocr_available:
-                        needs_ocr_indices.append(page_idx)
+                        potential_ocr_indices.append(page_idx)
 
                     raw_pages.append(page_text)
                 except Exception as page_err:
                     logger.warning("Error reading PDF page %d: %s", page_num, page_err)
                     raw_pages.append("")
+
+            # Fast digital validation: If document already contains sufficient digital text,
+            # it is a digital document and DOES NOT require heavy ONNX OCR (prevents 504 gateway timeout on slides/diagrams)
+            total_digital_words = sum(len(p.split()) for p in raw_pages)
+            pages_with_digital_text = sum(1 for p in raw_pages if len(p.split()) >= 4)
+
+            needs_ocr_indices = []
+            if total_digital_words < 30 and pages_with_digital_text < 2 and potential_ocr_indices:
+                # Genuinely scanned document: run OCR on at most 4 pages to stay within strict HTTP response budget (<4s)
+                needs_ocr_indices = potential_ocr_indices[:4]
+                logger.info("PDF identified as scanned (digital words=%d). Applying OCR to first %d scanned pages.", total_digital_words, len(needs_ocr_indices))
+            else:
+                logger.info("PDF has digital text (digital words=%d across %d pages). Bypassing OCR for rapid sub-second processing.", total_digital_words, pages_with_digital_text)
 
             # Phase 2: Ultra-fast parallel OCR on scanned pages only
             if needs_ocr_indices:
@@ -401,16 +414,24 @@ def extract_pdf_all_pages(buffer: bytes, max_pages: int = 150, document_id: str 
             reader = pypdf.PdfReader(io.BytesIO(buffer))
             total_pages = min(len(reader.pages), max_pages)
 
+            pypdf_raw = []
+            for page_idx in range(total_pages):
+                try:
+                    p = reader.pages[page_idx]
+                    pypdf_raw.append((p.extract_text() or "").strip())
+                except Exception:
+                    pypdf_raw.append("")
+
+            total_pypdf_words = sum(len(p.split()) for p in pypdf_raw)
             for page_idx in range(total_pages):
                 page_num = page_idx + 1
                 try:
                     page = reader.pages[page_idx]
-                    extracted = page.extract_text() or ""
-                    clean_text = extracted.strip()
+                    clean_text = pypdf_raw[page_idx]
 
-                    if len(clean_text.split()) < 15 and hasattr(page, "images") and len(page.images) > 0:
+                    if total_pypdf_words < 30 and len(clean_text.split()) < 15 and hasattr(page, "images") and len(page.images) > 0 and len(pages_ocr) < 3:
                         ocr_parts = []
-                        for img_obj in page.images:
+                        for img_obj in page.images[:2]:
                             ocr_t = try_ocr_on_image_bytes(img_obj.data)
                             if ocr_t:
                                 ocr_parts.append(ocr_t)

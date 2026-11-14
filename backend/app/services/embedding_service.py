@@ -170,8 +170,14 @@ async def index_document_chunks(
 
     now = datetime.utcnow()
     chunk_docs = []
-    for c in chunks:
-        emb = await get_text_embedding(c["text"])
+    
+    # Compute embeddings concurrently across chunks in sub-second time
+    emb_tasks = [get_text_embedding(c["text"]) for c in chunks]
+    embeddings = await asyncio.gather(*emb_tasks, return_exceptions=True)
+
+    for c, emb in zip(chunks, embeddings):
+        if isinstance(emb, Exception) or not emb:
+            emb = generate_local_embedding(c["text"])
         chunk_docs.append({
             "materialId": str(material_id),
             "title": title,

@@ -662,6 +662,18 @@ async def upload_material(
     material_doc["_id"] = insert_result.inserted_id
     material_doc["fileUrl"] = file_url
 
+    # Immediately index document chunks so AI chat and semantic search learn from the uploaded notes instantly
+    try:
+        await index_document_chunks(
+            material_id=material_id,
+            title=detected_title,
+            pages_text=extraction_res.pages_text,
+            uploader_id=current_user["id"],
+            status=initial_status
+        )
+    except Exception as idx_err:
+        logger.warning("Immediate chunk indexing notice for %s: %s", material_id, idx_err)
+
     # Queue background AI review
     background_tasks.add_task(
         run_review_task,
