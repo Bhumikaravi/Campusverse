@@ -954,6 +954,72 @@ def run_tests():
 
     asyncio.run(verify_chatbot())
 
+    # -------------------------------------------------------------------------
+    # SPECIFIC VERIFICATION: 'NLP Module - 4 .pdf'
+    # -------------------------------------------------------------------------
+    print("\n  [VERIFY] Testing Real-World Upload Scenario: 'NLP Module - 4 .pdf'...")
+    nlp_module_4 = """
+    Department of Computer Science & Engineering
+    Course: Natural Language Processing (CSE-401)
+    Module - 4: Syntax Parsing, Semantic Analysis, and Information Extraction
+
+    1. Overview and Learning Objectives:
+    The objective of this module is to introduce structural syntax parsing, context-free grammars (CFGs),
+    named entity recognition (NER), and semantic role labeling across human languages.
+    Students will study the formal algorithmic principles governing grammar parsing and sequence labeling.
+
+    2. Syntax Parsing Algorithms:
+    A parser processes sentences in natural languages to construct parse trees according to grammar rules.
+    Given a grammar G = (V, Sigma, R, S), the parser derives valid sentence structures.
+    - Top-down parsing: Starts from the start symbol S and attempts to rewrite it to match input tokens.
+    - Bottom-up parsing: Starts from the input words and reduces them step-by-step to the start symbol.
+    - Cocke-Younger-Kasami (CYK) Algorithm: Dynamic programming algorithm requiring grammars in Chomsky Normal Form (CNF).
+    Time complexity: O(n^3 * |R|), where n is the sentence length.
+
+    3. Information Extraction and Named Entity Recognition:
+    Named Entity Recognition (NER) identifies named entities such as PERSON, LOCATION, and ORGANIZATION.
+    Practical application case study: Automated resume parsing systems in recruitment analytics.
+    In an automated resume screening pipeline, NER models extract candidate education, experience, technical skills,
+    and languages from document text. However, handling ambiguous syntactic structures remains challenging.
+    When a process encounters memory limits, checkpointing allows training to resume gracefully.
+
+    4. Practice Exercises and Review Questions:
+    Q1. Define Chomsky Normal Form (CNF) and convert a sample CFG into CNF.
+    Q2. Trace the CYK dynamic programming table for the input sentence 'The dog saw the cat'.
+    Q3. Compare rule-based NER with statistical sequence labeling using Conditional Random Fields (CRF).
+    """
+    res_nlp = validate_document_relevance_sync(nlp_module_4, title="NLP Module - 4", filename="NLP Module - 4 .pdf", selected_subject="Natural Language Processing")
+    assert res_nlp["decision"] == "APPROVED" and res_nlp["is_academic"] is True, f"Failed: {res_nlp}"
+    print(f"  [PASS] Real-World 'NLP Module - 4 .pdf' Lecture Notes -> APPROVED ({res_nlp['document_type']})")
+
+    # Disguised resume named 'NLP Module - 4 .pdf'
+    fake_nlp = """
+    John Doe
+    johndoe@gmail.com | +91 9876543210 | Bangalore
+    LinkedIn: linkedin.com/in/johndoe | GitHub: github.com/johndoe
+
+    CAREER OBJECTIVE:
+    Seeking a software engineer role in Natural Language Processing.
+
+    EDUCATION:
+    - B.Tech in CSE, CGPA: 8.8
+
+    TECHNICAL SKILLS:
+    - Languages: Python, C++, Java
+
+    WORK EXPERIENCE:
+    - NLP Intern at TechAI Labs
+
+    PROJECTS:
+    - Chatbot with BERT
+
+    DECLARATION:
+    I hereby declare that the details provided are true.
+    """
+    res_fake = validate_document_relevance_sync(fake_nlp, title="NLP Module - 4", filename="NLP Module - 4 .pdf", selected_subject="Natural Language Processing")
+    assert res_fake["decision"] == "REJECTED" and res_fake["document_type"] == AcademicDocType.RESUME_CV, f"Failed: {res_fake}"
+    print(f"  [PASS] Disguised Resume named 'NLP Module - 4 .pdf' -> REJECTED ({res_fake['document_type']})")
+
     print("=" * 75)
     print(f"SUCCESS: ALL {final_12_passed}/12 MANDATORY TEST CASES AND CHATBOT ISOLATION VERIFIED!")
     print("=" * 75)

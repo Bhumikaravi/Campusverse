@@ -276,6 +276,18 @@ RESUME_KEYWORDS = [
     r"\bphone\s*:\s*(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b"
 ]
 
+RESUME_STRUCTURED_HEADINGS = [
+    r"\b(career\s+objective|professional\s+summary|profile\s+summary|summary\s+of\s+qualifications)\s*[:\n]",
+    r"\b(work\s+experience|professional\s+experience|employment\s+history|internship\s+experience)\s*[:\n]",
+    r"\b(educational\s+qualifications?|academic\s+background|education)\s*[:\n]",
+    r"\b(technical\s+skills?|key\s+skills?|core\s+competencies|technologies)\s*[:\n]",
+    r"\b(academic\s+projects?|personal\s+projects?|projects\s+undertaken|projects)\s*[:\n]",
+    r"\b(certifications?|courses\s+and\s+certifications?)\s*[:\n]",
+    r"\b(achievements?|honors?\s+and\s+awards?)\s*[:\n]",
+    r"\b(personal\s+details?|personal\s+profile)\s*[:\n]",
+    r"\bdeclaration\s*:\s*i\s+hereby\s+declare\b"
+]
+
 RESUME_SECTION_HEADERS = [
     "education", "experience", "skills", "projects", "certifications",
     "achievements", "interests", "hobbies", "declaration", "objective",
@@ -538,8 +550,8 @@ def is_academic_discussion_of_finance(text: str, lower_text: str) -> bool:
 
     # 2. Pedagogical structure of textbooks and study materials
     has_pedagogical_framing = bool(re.search(
-        r"\b(chapter\s*[-:\d]|unit\s*[-:\d]|module\s*[-:\d]|lecture\s*[-:\d]?|"
-        r"learning\s+objectives|review\s+questions|exercises\s*:|discussion\s+questions|"
+        r"\b(chapter|unit|module|lecture|semester|assignment)(\s*[-:]\s*|\s*)(\d+|[ivxlcdm]+|[a-z])\b|"
+        r"\b(learning\s+objectives|review\s+questions|exercises\s*:|discussion\s+questions|"
         r"textbook|syllabus|course\s+outline)\b",
         lower_text
     ))
@@ -667,16 +679,16 @@ COMMON_ACADEMIC_VOCAB = {
 
 # 8. Academic Study Material Positive Indicators
 ACADEMIC_INDICATORS = [
-    r"\blecture\s*[-:\d]?\b",
+    r"\blecture(\s*[-:]\s*|\s*)(\d+|[ivxlcdm]+|[a-z])?\b",
     r"\blecture\s+(notes|series|outline|summary)\b",
-    r"\bmodule\s*[-:\d]\b",
-    r"\bunit\s*[-:\d]\b",
-    r"\bchapter\s*[-:\d]\b",
+    r"\bmodule(\s*[-:]\s*|\s*)(\d+|[ivxlcdm]+|[a-z])\b",
+    r"\bunit(\s*[-:]\s*|\s*)(\d+|[ivxlcdm]+|[a-z])\b",
+    r"\bchapter(\s*[-:]\s*|\s*)(\d+|[ivxlcdm]+|[a-z])\b",
     r"\bsyllabus\b",
     r"\btextbook\b",
     r"\bquestion\s+paper\b",
     r"\bexam(ination)?\b",
-    r"\bsemester\s*[-:\d]\b",
+    r"\bsemester(\s*[-:]\s*|\s*)(\d+|[ivxlcdm]+|[a-z])\b",
     r"\bdefinition\s*:\b",
     r"\btheorem\b",
     r"\balgorithm\b",
@@ -688,7 +700,7 @@ ACADEMIC_INDICATORS = [
     r"\bobjective\s+questions\b",
     r"\bmultiple\s+choice\s+questions\b",
     r"\bmarks\s*:\s*\d+\b",
-    r"\bassignment\s*[-:\d]?\b",
+    r"\bassignment(\s*[-:]\s*|\s*)(\d+|[ivxlcdm]+|[a-z])?\b",
     r"\blab\s+(manual|experiment|exercise|record)\b",
     r"\bprocedure\s*:\b",
     r"\bobservation\s*:\b",
@@ -1056,29 +1068,60 @@ def detect_document_type_from_content(
         )
 
     # Check 3: Resume / CV Detection (Examining actual content, not filename)
+    has_in_content_academic_heading = bool(re.search(
+        r"\b(module|chapter|unit|lecture|semester|assignment)(\s*[-:]\s*|\s*)(\d+|[ivxlcdm]+|[a-z])\b|\b(syllabus|course\s+code|lecture\s+notes|textbook|curriculum)\b",
+        lower_text
+    ))
+    has_pedagogical_content = bool(re.search(
+        r"\b(definition\s*:|is\s+defined\s+as|refers\s+to\s+the|concept\s+of|architecture\s+of|principles\s+of|characteristics\s+of|advantages\s+and\s+disadvantages|classification\s+of|properties\s+of|types\s+of|steps\s+involved|complexity|time\s+complexity|space\s+complexity|algorithm|derivation|formula|theorem|we\s+study)\b",
+        lower_text
+    ))
     academic_keywords_in_doc = sum(1 for p in ACADEMIC_INDICATORS if re.search(p, lower_text, re.IGNORECASE))
-    has_in_content_academic_heading = bool(re.search(r"\b(module\s*[-:\d]|chapter\s*[-:\d]|unit\s*[-:\d]|lecture\s*[-:\d]|syllabus)\b", lower_text))
-    
-    resume_matches = [p for p in RESUME_KEYWORDS if re.search(p, lower_text, re.IGNORECASE)]
-    header_count = sum(1 for h in RESUME_SECTION_HEADERS if re.search(r"\b" + re.escape(h) + r"\b", lower_text))
-    has_resume_keyword = any(k in lower_text for k in ["curriculum vitae", "resume", "bio-data", "career objective", "professional summary"])
-    has_contact_and_edu = ("education" in lower_text and ("work experience" in lower_text or "employment history" in lower_text) and ("phone" in lower_text or "email" in lower_text or "@" in lower_text or "linkedin" in lower_text or "github" in lower_text))
+    is_strong_academic_doc = has_in_content_academic_heading or (has_pedagogical_content and academic_keywords_in_doc >= 2) or (academic_keywords_in_doc >= 4)
 
-    # Real resumes have explicit resume keywords or contact info paired with work experience headers, and lack pedagogical module structure
+    # Personal contact details specific to a candidate CV / Resume
+    has_candidate_contact = bool(re.search(
+        r"(\b\+?\d{1,3}[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b|"
+        r"\b[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\b|"
+        r"\blinkedin\.com/in/[a-zA-Z0-9_-]+\b|"
+        r"\bgithub\.com/[a-zA-Z0-9_-]+\b)",
+        lower_text
+    ))
+
+    # Explicit resume / curriculum vitae / career statement indicators
+    has_explicit_resume_phrase = bool(re.search(
+        r"\b(curriculum\s+vitae|bio-?data)\b|^\s*resum[eé]\s*$|\bresum[eé]\s*[:\n]|\b(career\s+objective|professional\s+summary|profile\s+summary)\s*[:\n]|\bdeclaration\s*:\s*i\s+hereby\s+declare\b",
+        lower_text,
+        re.MULTILINE
+    ))
+
+    # Structured resume section headers (requiring heading colon or newline, NOT isolated dictionary words in prose)
+    matched_structured_headers = [p for p in RESUME_STRUCTURED_HEADINGS if re.search(p, lower_text)]
+    structured_header_count = len(matched_structured_headers)
+
+    # Determine genuine resume:
+    # 1. Non-academic document with structured resume headings and candidate contact info / explicit resume markers
+    # 2. Even if disguised under an academic title, a true resume has candidate contact info + multiple resume sections + zero genuine pedagogy
     is_genuine_resume = False
-    if has_resume_keyword and (header_count >= 2 or len(resume_matches) >= 2):
-        is_genuine_resume = True
-    elif has_contact_and_edu and header_count >= 3 and not has_in_content_academic_heading:
-        is_genuine_resume = True
-    elif len(resume_matches) >= 3 and header_count >= 3 and not has_in_content_academic_heading:
-        is_genuine_resume = True
+    if not is_strong_academic_doc:
+        if has_explicit_resume_phrase and (structured_header_count >= 1 or has_candidate_contact):
+            is_genuine_resume = True
+        elif has_candidate_contact and structured_header_count >= 2:
+            is_genuine_resume = True
+        elif structured_header_count >= 3:
+            is_genuine_resume = True
+    else:
+        # Document has academic headings or pedagogy. It is ONLY classified as a resume if it is
+        # unequivocally a candidate CV that merely mentions an academic keyword or course name
+        if has_candidate_contact and structured_header_count >= 3 and has_explicit_resume_phrase and not has_pedagogical_content:
+            is_genuine_resume = True
 
     if is_genuine_resume:
         semantic_profile["overall_purpose"] = "Personal curriculum vitae / resume detailing individual career history, education, and technical skills."
         return (
             AcademicDocType.RESUME_CV,
             0.96,
-            ["resume_section_headers", f"matched_headers_{header_count}", *[p[:25] for p in resume_matches[:3]]],
+            ["resume_section_headers", f"matched_headers_{structured_header_count}", *[p[:25] for p in matched_structured_headers[:3]]],
             "Detected personal resume / curriculum vitae format with career history and contact details.",
             semantic_profile
         )
@@ -1280,8 +1323,8 @@ def detect_document_type_from_content(
     is_pyq = bool(re.search(r"\b(previous\s+year|pyq|university\s+examination|semester\s+end\s+examination|model\s+question\s+paper|annual\s+examination)\b", lower_text))
     is_question_paper = is_pyq or feats["is_placement_question_bank"] or bool(re.search(r"\bquestion\s+paper\b|\bmaximum\s+marks\b|\btime\s*:\s*\d\s*hours\b|\bpart\s*[-–—]\s*[ab]\b|\banswer\s+all\s+questions\b", lower_text))
     is_lab_manual = bool(re.search(r"\blab\s+manual\b|\bpractical\s+record\b|\bexperiment\s+no\b|\bapparatus\s*:|\bprocedure\s*:", lower_text))
-    is_assignment = bool(re.search(r"\bassignment\s*[-:\d]?\b|\bworksheet\b|\btutorial\s+sheet\b|\bproblem\s+set\b|\bdue\s+date\s*:", lower_text))
-    is_textbook_chapter = bool(re.search(r"\bchapter\s*[-:\d]\b|\bsection\s*\d+\.\d+\b|\blearning\s+objectives\b|\bkey\s+terms\b|\bchapter\s+summary\b|\bexercises\s*:\b|\bdiscussion\s+questions\b", lower_text))
+    is_assignment = bool(re.search(r"\bassignment(\s*[-:]\s*|\s*)(\d+|[ivxlcdm]+|[a-z])?\b|\bworksheet\b|\btutorial\s+sheet\b|\bproblem\s+set\b|\bdue\s+date\s*:", lower_text))
+    is_textbook_chapter = bool(re.search(r"\bchapter(\s*[-:]\s*|\s*)(\d+|[ivxlcdm]+|[a-z])\b|\bsection\s*\d+\.\d+\b|\blearning\s+objectives\b|\bkey\s+terms\b|\bchapter\s+summary\b|\bexercises\s*:\b|\bdiscussion\s+questions\b", lower_text))
     is_presentation = bool(re.search(r"\bslide\s*\d+\b|\bagenda\b|\bpresentation\s+title\b", lower_text))
 
     if is_assignment:
@@ -1362,7 +1405,7 @@ def detect_document_type_from_content(
 
     has_academic_indicators = len(academic_matches) >= 1
     has_pedagogical_structure = bool(re.search(
-        r"\b(lecture\s*[-:\d]|definition\s*:|is\s+defined\s+as|refers\s+to\s+the|concept\s+of|architecture\s+of|principles\s+of|characteristics\s+of|workflow\s+of|advantages\s+and\s+disadvantages|classification\s+of|properties\s+of|types\s+of|steps\s+involved|complexity|time\s+complexity|space\s+complexity|best\s+case|worst\s+case|we\s+study|sorted\s+array)\b",
+        r"\b(lecture(\s*[-:]\s*|\s*)(\d+|[ivxlcdm]+|[a-z])?|definition\s*:|is\s+defined\s+as|refers\s+to\s+the|concept\s+of|architecture\s+of|principles\s+of|characteristics\s+of|workflow\s+of|advantages\s+and\s+disadvantages|classification\s+of|properties\s+of|types\s+of|steps\s+involved|complexity|time\s+complexity|space\s+complexity|best\s+case|worst\s+case|we\s+study|sorted\s+array)\b",
         lower_text
     ))
     has_instructional_content = (
