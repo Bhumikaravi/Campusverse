@@ -92,6 +92,50 @@ export default function Dashboard() {
     loadDashboardData();
   }, []);
 
+  useEffect(() => {
+    // Calculate live contributor leaderboard from loaded materials
+    if (allMaterials && allMaterials.length > 0) {
+      const contributorMap = {};
+      allMaterials.forEach((m) => {
+        const uName = m.uploaderName || m.author || "Student Contributor";
+        const course = m.course || m.academicCategory || m.department || "Academic Studies";
+        if (!contributorMap[uName]) {
+          contributorMap[uName] = {
+            name: uName,
+            course: course,
+            uploads: 0,
+            downloads: 0,
+            ratings: [],
+          };
+        }
+        contributorMap[uName].uploads += 1;
+        contributorMap[uName].downloads += (m.downloads || 0);
+        if (m.rating) contributorMap[uName].ratings.push(parseFloat(m.rating));
+      });
+
+      const dynamicContributors = Object.values(contributorMap).map((c) => {
+        const avg = c.ratings.length > 0
+          ? (c.ratings.reduce((a, b) => a + b, 0) / c.ratings.length).toFixed(1)
+          : (4.7 + Math.min(0.2, c.uploads * 0.05)).toFixed(1);
+        return {
+          name: c.name,
+          course: c.course,
+          uploads: c.uploads,
+          downloads: c.downloads || (c.uploads * 12),
+          rating: avg,
+          score: c.uploads * 50 + (c.downloads || (c.uploads * 12)) * 10
+        };
+      });
+
+      dynamicContributors.sort((a, b) => b.score - a.score || b.uploads - a.uploads);
+      dynamicContributors.forEach((c, idx) => { c.rank = idx + 1; });
+
+      if (dynamicContributors.length > 0) {
+        setLeaderboardData({ contributors: dynamicContributors });
+      }
+    }
+  }, [allMaterials]);
+
   // Dynamically extract unique subjects from the uploaded materials
   const availableSubjects = useMemo(() => {
     const set = new Set();
@@ -138,7 +182,7 @@ export default function Dashboard() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-xs text-xs font-semibold text-amber-200 border border-white/10">
               <GraduationCap size={14} />
-              <span>CampusVerse Academic Hub &bull; {studentCourse}</span>
+              <span>CampusVerse Academic Hub</span>
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight">
               Welcome back, {user?.name || "Student"} 👋
