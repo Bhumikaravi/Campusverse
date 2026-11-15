@@ -343,39 +343,23 @@ def extract_pdf_all_pages(buffer: bytes, max_pages: int = 150, document_id: str 
             else:
                 logger.info("PDF has digital text (digital words=%d across %d pages). Bypassing OCR for rapid sub-second processing.", total_digital_words, pages_with_digital_text)
 
-            # Phase 2: Ultra-fast parallel OCR on scanned pages only
+            # Phase 2: Safe sequential OCR on scanned pages only (prevents multi-threading C-segfaults in onnxruntime)
             if needs_ocr_indices:
                 logger.info(
                     "Running optimized OCR on %d scanned pages out of %d total pages...",
                     len(needs_ocr_indices), total_pages
                 )
-                from concurrent.futures import ThreadPoolExecutor
-
-                # Step A: Pre-render pixmaps in C sequentially (avoids fitz thread lock contention)
-                # 90 DPI JPG with 80% quality matches RapidOCR model input perfectly and renders in <0.03s per page
-                ocr_tasks = []
+                ocr_results = []
                 for p_idx in needs_ocr_indices:
                     try:
                         p = doc[p_idx]
-                        pix = p.get_pixmap(dpi=90)
-                        jpg_bytes = pix.tobytes("jpg", jpg_quality=80)
-                        ocr_tasks.append((p_idx, jpg_bytes))
-                    except Exception as re:
-                        logger.warning("Failed to render page %d for OCR: %s", p_idx + 1, re)
-
-                # Step B: Execute pure ONNX OCR concurrently across all CPU threads
-                def process_page_ocr(task):
-                    p_idx, img_bytes = task
-                    try:
-                        ocr_t = try_ocr_on_image_bytes(img_bytes)
-                        return p_idx, ocr_t
-                    except Exception as e:
-                        logger.warning("OCR failed on page %d: %s", p_idx + 1, e)
-                        return p_idx, None
-
-                workers = min(6, max(2, os.cpu_count() or 4))
-                with ThreadPoolExecutor(max_workers=workers) as executor:
-                    ocr_results = list(executor.map(process_page_ocr, ocr_tasks))
+                        pix = p.get_pixmap(dpi=72)
+                        jpg_bytes = pix.tobytes("jpg", jpg_quality=75)
+                        ocr_t = try_ocr_on_image_bytes(jpg_bytes)
+                        ocr_results.append((p_idx, ocr_t))
+                    except Exception as ocr_err:
+                        logger.warning("OCR failed on page %d: %s", p_idx + 1, ocr_err)
+                        ocr_results.append((p_idx, None))
 
                 for p_idx, ocr_text in ocr_results:
                     page_num = p_idx + 1

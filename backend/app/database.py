@@ -14,13 +14,27 @@ db_instance = Database()
 async def connect_db():
     timeout_sec = 5.0 if settings.is_production else 2.0
     timeout_ms = int(timeout_sec * 1000)
-    logger.info("Connecting to MongoDB at: %s", settings.MONGODB_URI.split("@")[-1] if "@" in settings.MONGODB_URI else settings.MONGODB_URI)
-    db_instance.client = AsyncIOMotorClient(
-        settings.MONGODB_URI,
-        serverSelectionTimeoutMS=timeout_ms,
-        connectTimeoutMS=timeout_ms
-    )
-    db_instance.db = db_instance.client[settings.DB_NAME]
+    uri = (settings.MONGODB_URI or "").strip()
+    if not uri or (not uri.startswith("mongodb://") and not uri.startswith("mongodb+srv://")):
+        logger.warning("No valid MONGODB_URI configured ('%s'). Using fallback database store.", uri)
+        from app.mock_db import mock_db_instance
+        db_instance.db = mock_db_instance
+        return
+
+    logger.info("Connecting to MongoDB at: %s", uri.split("@")[-1] if "@" in uri else uri)
+    try:
+        db_instance.client = AsyncIOMotorClient(
+            uri,
+            serverSelectionTimeoutMS=timeout_ms,
+            connectTimeoutMS=timeout_ms
+        )
+        db_name = (settings.DB_NAME or "").strip() or "campusverse"
+        db_instance.db = db_instance.client[db_name]
+    except Exception as ce:
+        logger.warning("Failed to initialize MongoDB client: %s. Using fallback database.", ce)
+        from app.mock_db import mock_db_instance
+        db_instance.db = mock_db_instance
+        return
     
     # Ping database with adaptive timeout so server startup is never blocked
     try:

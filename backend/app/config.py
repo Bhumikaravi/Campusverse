@@ -1,10 +1,10 @@
-from typing import List, Literal
+from typing import List, Literal, Any
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import Field, model_validator
 import os
 
 class Settings(BaseSettings):
-    ENVIRONMENT: Literal["development", "production", "test"] = "development"
+    ENVIRONMENT: str = "production"
     PORT: int = 5000
     CLIENT_URL: str = "http://localhost:5173,http://127.0.0.1:5173"
     
@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     COOKIE_NAME: str = "cv_token"
     
     # Storage
-    STORAGE_PROVIDER: Literal["local", "supabase", "cloudinary"] = "local"
+    STORAGE_PROVIDER: str = "local"
     LOCAL_STORAGE_DIR: str = "./uploads"
     MAX_FILE_SIZE_MB: int = 25
     
@@ -44,6 +44,18 @@ class Settings(BaseSettings):
     CONFIDENCE_HIGH_THRESHOLD: float = 0.80
     CONFIDENCE_MEDIUM_THRESHOLD: float = 0.50
 
+    @model_validator(mode="before")
+    @classmethod
+    def clean_empty_strings(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            cleaned = {}
+            for k, v in data.items():
+                if isinstance(v, str) and not v.strip():
+                    continue
+                cleaned[k] = v
+            return cleaned
+        return data
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -52,10 +64,15 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> List[str]:
-        return [url.strip() for url in self.CLIENT_URL.split(",") if url.strip()]
+        origins = [url.strip() for url in self.CLIENT_URL.split(",") if url.strip()]
+        if "http://localhost:5173" not in origins:
+            origins.append("http://localhost:5173")
+        if "http://127.0.0.1:5173" not in origins:
+            origins.append("http://127.0.0.1:5173")
+        return origins
 
     @property
     def is_production(self) -> bool:
-        return self.ENVIRONMENT == "production"
+        return self.ENVIRONMENT.lower() == "production"
 
 settings = Settings()

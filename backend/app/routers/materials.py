@@ -492,26 +492,23 @@ async def upload_material(
     )
 
     if validation["decision"] == "REJECTED":
-        # Record rejected upload in database for administrative oversight & audit
-        rej_doc = {
-            "documentId": doc_id,
-            "title": detected_title,
-            "originalName": orig_name,
-            "subject": effective_subj,
-            "department": effective_dept,
-            "batch": (batch or current_user.get("batch") or "Batch 2023-2027").strip(),
-            "status": "REJECTED",
-            "rejectionReason": validation["rejection_reason"],
-            "studentMessage": validation["student_message"],
-            "documentType": validation["document_type"],
-            "validationDetails": validation,
-            "uploader": current_user["id"],
-            "uploaderName": current_user.get("name", "Student"),
-            "uploaderEmail": current_user.get("email"),
-            "createdAt": datetime.utcnow(),
-            "updatedAt": datetime.utcnow()
-        }
-        await db["materials"].insert_one(rej_doc)
+        # Do not save rejected documents into permanent materials database
+        try:
+            rej_audit = {
+                "documentId": doc_id,
+                "title": detected_title,
+                "originalName": orig_name,
+                "status": "REJECTED",
+                "rejectionReason": validation["rejection_reason"],
+                "studentMessage": validation["student_message"],
+                "documentType": validation["document_type"],
+                "uploader": current_user["id"],
+                "createdAt": datetime.utcnow()
+            }
+            await db["rejected_audit"].insert_one(rej_audit)
+        except Exception:
+            pass
+
         raise HTTPException(
             status_code=422,
             detail={

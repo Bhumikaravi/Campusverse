@@ -162,87 +162,37 @@ DEFAULT_ADMIN_RULES = {
 # ========================================================
 # STUDENT-FACING REJECTION TEMPLATES (STRICT FILTER ALIGNED)
 # ========================================================
+STANDARD_REJECTION_MESSAGE = "Upload Rejected: This document does not appear to be educational study material. CampusVerse accepts only academic notes and study resources."
+
 STUDENT_MESSAGES = {
-    AcademicDocType.RESUME: (
-        "Upload rejected. CampusVerse only accepts academic study materials. This document appears to be a personal resume."
-    ),
-    AcademicDocType.RESUME_CV: (
-        "Upload rejected. CampusVerse only accepts academic study materials. This document appears to be a personal resume."
-    ),
-    AcademicDocType.COOKING_RECIPE: (
-        "Upload rejected. This document contains cooking-related content rather than academic study material."
-    ),
-    AcademicDocType.INTERNSHIP_CERTIFICATE: (
-        "Upload rejected. Internship certificates and employment documents are not accepted as study materials."
-    ),
-    AcademicDocType.CERTIFICATE: (
-        "Upload rejected. Internship certificates and employment documents are not accepted as study materials."
-    ),
-    AcademicDocType.JOB_APPLICATION: (
-        "Upload rejected. Job applications and employment-related documents are not accepted as academic study materials."
-    ),
-    AcademicDocType.PLACEMENT_DOCUMENT: (
-        "Upload rejected. Internship certificates and employment documents are not accepted as study materials."
-    ),
-    AcademicDocType.PLACEMENT_RECRUITMENT: (
-        "Upload rejected. Internship certificates and employment documents are not accepted as study materials."
-    ),
-    AcademicDocType.FEE_RECEIPT: (
-        "Upload rejected. This document has been identified as a college fee receipt or financial payment record, not academic study material. "
-        "CampusVerse accepts only relevant academic resources such as study notes, textbooks, question papers, assignments and educational materials. "
-        "Please upload a valid study document."
-    ),
-    AcademicDocType.FINANCIAL_DOCUMENT: (
-        "Upload rejected. Financial documents, payment receipts, invoices and bank statements are not permitted in the CampusVerse academic study-material library."
-    ),
-    AcademicDocType.PAYMENT_RECEIPT: (
-        "Upload rejected. Financial documents, payment receipts, invoices and bank statements are not permitted in the CampusVerse academic study-material library."
-    ),
-    AcademicDocType.BANK_STATEMENT: (
-        "Upload rejected. Financial documents, payment receipts, invoices and bank statements are not permitted in the CampusVerse academic study-material library."
-    ),
-    AcademicDocType.INVOICE: (
-        "Upload rejected. Financial documents, payment receipts, invoices and bank statements are not permitted in the CampusVerse academic study-material library."
-    ),
-    AcademicDocType.INVOICE_BILL: (
-        "Upload rejected. Financial documents, payment receipts, invoices and bank statements are not permitted in the CampusVerse academic study-material library."
-    ),
-    AcademicDocType.NON_ACADEMIC_LIFESTYLE: (
-        "Upload rejected. CampusVerse only accepts academic study materials. Non-academic content (menus, shopping lists, travel itineraries, diaries) is not permitted."
-    ),
-    AcademicDocType.EVENT_INVITATION: (
-        "Upload rejected. CampusVerse only accepts academic study materials. Event invitations and personal letters are not accepted."
-    ),
-    AcademicDocType.ID_IDENTITY_DOC: (
-        "Upload rejected. Identity cards and personal identification documents are strictly prohibited on CampusVerse for student privacy and security. Please upload study notes."
-    ),
-    AcademicDocType.PERSONAL_DOCUMENT: (
-        "Upload rejected. CampusVerse only accepts academic study materials. This document appears to be a random personal or unrelated document."
-    ),
-    AcademicDocType.PERSONAL_CORRESPONDENCE: (
-        "Upload rejected. CampusVerse only accepts academic study materials. Personal correspondence and applications are not accepted."
-    ),
-    AcademicDocType.BUSINESS_MARKETING: (
-        "Upload rejected. Business proposals and marketing materials are not academic learning materials. Please upload university notes or course references."
-    ),
-    AcademicDocType.ADMINISTRATIVE_DOCUMENT: (
-        "Upload rejected. Administrative forms, submission confirmations and non-academic documents cannot be published on CampusVerse. Please upload your actual course study materials."
-    ),
-    AcademicDocType.NON_ACADEMIC: (
-        "Upload rejected. CampusVerse only accepts academic study materials. This document appears to be a random personal or unrelated document."
-    ),
-    AcademicDocType.UNRELATED_NON_ACADEMIC: (
-        "Upload rejected. CampusVerse only accepts academic study materials. This document appears to be a random personal or unrelated document."
-    ),
+    AcademicDocType.RESUME: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.RESUME_CV: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.COOKING_RECIPE: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.INTERNSHIP_CERTIFICATE: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.CERTIFICATE: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.JOB_APPLICATION: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.PLACEMENT_DOCUMENT: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.PLACEMENT_RECRUITMENT: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.FEE_RECEIPT: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.FINANCIAL_DOCUMENT: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.PAYMENT_RECEIPT: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.BANK_STATEMENT: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.INVOICE: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.INVOICE_BILL: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.NON_ACADEMIC_LIFESTYLE: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.EVENT_INVITATION: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.ID_IDENTITY_DOC: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.PERSONAL_DOCUMENT: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.PERSONAL_CORRESPONDENCE: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.BUSINESS_MARKETING: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.ADMINISTRATIVE_DOCUMENT: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.NON_ACADEMIC: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.UNRELATED_NON_ACADEMIC: STANDARD_REJECTION_MESSAGE,
     AcademicDocType.SUBJECT_MISMATCH: (
         "Subject Mismatch! The uploaded document does not match the selected subject ({subject}). Please choose the appropriate subject."
     ),
-    AcademicDocType.CORRUPTED_OR_POOR_QUALITY: (
-        "Upload rejected. The uploaded study material contains excessive errors, corrupted text or unreadable content. Please upload a clear and complete version."
-    ),
-    AcademicDocType.EMPTY_OR_UNREADABLE: (
-        "Upload rejected. The uploaded file is empty or contains unreadable content. Please ensure the document contains clear, readable notes or textbook content and retry."
-    ),
+    AcademicDocType.CORRUPTED_OR_POOR_QUALITY: STANDARD_REJECTION_MESSAGE,
+    AcademicDocType.EMPTY_OR_UNREADABLE: STANDARD_REJECTION_MESSAGE,
     "APPROVED": (
         "Academic Document Verified! The study material has been analyzed and confirmed as genuine academic content."
     ),

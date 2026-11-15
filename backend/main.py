@@ -76,12 +76,6 @@ async def lifespan(app: FastAPI):
             "MongoDB is not currently reachable (%s). Backend running in standalone mode (document extraction, OCR, and AI summarization active).",
             e
         )
-    try:
-        from app.services.text_extract import get_rapid_ocr
-        get_rapid_ocr()
-        logger.info("RapidOCR neural network engine pre-warmed and ready.")
-    except Exception:
-        pass
     yield
     # Shutdown: close MongoDB client
     logger.info("Shutting down CampusVerse Backend...")
@@ -108,11 +102,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
-# CORS Middleware (Supports configured CLIENT_URL, local dev, and all Vercel domains)
+# CORS Middleware (Supports configured CLIENT_URL, local dev, Back4App, and Vercel domains)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex=r"https://.*(\.back4\.app|\.vercel\.app)",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
