@@ -5,12 +5,10 @@ import {
   Send,
   Plus,
   Trash2,
-  FileText,
   Sparkles,
   BookOpen,
   CheckCircle2,
   AlertCircle,
-  ExternalLink,
   ChevronRight,
   MessageSquare,
   ShieldCheck,
@@ -476,71 +474,6 @@ export default function ChatWithNotes() {
                         <p className="leading-relaxed whitespace-pre-line">{msg.content}</p>
                       ) : (
                         <MarkdownSummary content={msg.content} />
-                      )}
-
-                      {/* Source Citations */}
-                      {!isUser && sources.length > 0 && (
-                        <div className="pt-2 border-t border-gray-200/70 space-y-1">
-                          <span className="text-[11px] font-bold text-brand-900 uppercase tracking-wider block">
-                            Sources:
-                          </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {sources.filter(Boolean).map((src, sIdx) => {
-                              const rawId = src.materialId || src.id || src._id;
-                              let resolvedId =
-                                rawId && String(rawId) !== "undefined" && String(rawId) !== "null"
-                                  ? String(rawId).trim()
-                                  : "";
-                              if (!resolvedId) {
-                                const match = availableMaterials.find(
-                                  (m) =>
-                                    (src.title && m.title && m.title.toLowerCase().trim() === src.title.toLowerCase().trim()) ||
-                                    (src.title && m.title && (m.title.toLowerCase().includes(src.title.toLowerCase()) || src.title.toLowerCase().includes(m.title.toLowerCase())))
-                                );
-                                if (match) {
-                                  resolvedId = String(match.id);
-                                } else if (selectedMaterialIds.length === 1) {
-                                  resolvedId = String(selectedMaterialIds[0]);
-                                }
-                              }
-                              const hasValidId = Boolean(
-                                resolvedId &&
-                                  resolvedId !== "undefined" &&
-                                  resolvedId !== "null" &&
-                                  resolvedId.trim() !== ""
-                              );
-                              const pageLabel =
-                                src.pageNumber && !isNaN(src.pageNumber)
-                                  ? `, Page ${src.pageNumber}`
-                                  : "";
-                              const cleanTitle = (src.title || "Study Note").trim().replace(/,\s*$/, "");
-
-                              return hasValidId ? (
-                                <Link
-                                  key={sIdx}
-                                  to={`/materials/${resolvedId}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white border border-gray-300 text-gray-700 hover:text-brand-800 hover:border-brand-300 text-xs transition shadow-2xs"
-                                >
-                                  <FileText size={11} className="text-brand-600" />
-                                  <span className="font-semibold">{cleanTitle}</span>
-                                  {pageLabel}
-                                  <ExternalLink size={10} className="text-gray-400" />
-                                </Link>
-                              ) : (
-                                <span
-                                  key={sIdx}
-                                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white border border-gray-200 text-gray-700 text-xs"
-                                >
-                                  <FileText size={11} className="text-brand-600" />
-                                  <span className="font-semibold">{cleanTitle}</span>
-                                  {pageLabel}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </div>
                       )}
                     </div>
                   </div>

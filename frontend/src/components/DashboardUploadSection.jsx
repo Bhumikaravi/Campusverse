@@ -310,7 +310,9 @@ export default function DashboardUploadSection({ onUploadSuccess }) {
         setValidationRejection(null);
       }
       if (err.message === "Network Error" || err.code === "ERR_NETWORK" || !err.response) {
-        errDetail = "Cannot connect to the backend server (http://localhost:5000). Please ensure the backend is running by running 'start-dev.bat' or 'python -m uvicorn main:app --reload --port 5000'.";
+        errDetail = typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"
+          ? "Cannot connect to the backend server. Please check your internet connection or verify the server status."
+          : "Cannot connect to the backend server. Please ensure the backend is running by running 'start-dev.bat' or 'python -m uvicorn main:app --reload'.";
       }
       setErrorMessage(errDetail);
       showToast(errDetail, "error");

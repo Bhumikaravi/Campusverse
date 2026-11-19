@@ -5,7 +5,7 @@ import os
 
 class Settings(BaseSettings):
     ENVIRONMENT: str = "production"
-    PORT: int = 8000
+    PORT: int = 5000
     CLIENT_URL: str = "http://localhost:5173,http://127.0.0.1:5173"
     
     # MongoDB Atlas / Local

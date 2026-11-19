@@ -46,7 +46,9 @@ export default function Login() {
           serverError = d.message;
         }
       } else if (err.code === "ERR_NETWORK" || !err.response) {
-        serverError = "Cannot connect to backend server. Please verify FastAPI is running on http://localhost:5000.";
+        serverError = typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"
+          ? "Cannot connect to backend server. Please check your internet connection."
+          : "Cannot connect to backend server. Please verify FastAPI is running.";
       }
       setError(serverError);
     } finally {

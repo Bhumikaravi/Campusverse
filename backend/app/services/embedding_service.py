@@ -2,6 +2,7 @@ import re
 import math
 import logging
 import hashlib
+import asyncio
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 import numpy as np
@@ -124,6 +125,17 @@ def chunk_document_by_pages(pages_text: List[str], target_words: int = 350, over
             for i in range(0, len(words), step):
                 chunk_slice = words[i : i + target_words]
                 if len(chunk_slice) >= 15:
+                    chunks.append({
+                        "chunkIndex": chunk_index,
+                        "pageNumber": p_num,
+                        "text": " ".join(chunk_slice),
+                        "wordCount": len(chunk_slice)
+                    })
+                    chunk_index += 1
+                elif chunk_slice and chunks and chunks[-1]["pageNumber"] == p_num:
+                    chunks[-1]["text"] += " " + " ".join(chunk_slice)
+                    chunks[-1]["wordCount"] += len(chunk_slice)
+                elif chunk_slice:
                     chunks.append({
                         "chunkIndex": chunk_index,
                         "pageNumber": p_num,

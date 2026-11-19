@@ -41,8 +41,163 @@ def word_stem(w: str) -> str:
             return w[:-len(suffix)]
     return w
 
+ACRONYM_SYMS = {
+    "nlp": ["natural", "language", "processing", "nlp", "classification", "tokenization", "sentiment"],
+    "cfg": ["context", "free", "grammar", "cfgs", "cfg"],
+    "cfgs": ["context", "free", "grammar", "cfgs", "cfg"],
+    "cnf": ["chomsky", "normal", "form", "cnf"],
+    "gnf": ["greibach", "normal", "form", "gnf"],
+    "cyk": ["cocke", "younger", "kasami", "cyk"],
+    "ner": ["named", "entity", "recognition", "ner"],
+    "pos": ["part", "speech", "tagging", "pos"],
+    "crf": ["conditional", "random", "fields", "crf"],
+    "hmm": ["hidden", "markov", "model", "hmm"],
+    "bert": ["bert", "transformer", "transformers"],
+    "gpt": ["gpt", "transformer", "transformers"],
+    "llm": ["llm", "large", "language", "model"],
+    "lstm": ["long", "short", "term", "memory", "lstm"],
+    "rnn": ["recurrent", "neural", "network", "rnn"],
+    "cnn": ["convolutional", "neural", "network", "cnn"],
+    "ann": ["artificial", "neural", "network", "ann"],
+    "gan": ["generative", "adversarial", "network", "gan"],
+    "ae": ["autoencoder", "autoencoders", "ae", "aes", "encoder", "decoder", "latent", "representation"],
+    "vae": ["variational", "autoencoder", "autoencoders", "vae", "vaes", "latent", "space", "probabilistic"],
+    "encoder": ["encoder", "encoders", "encode", "latent", "representation", "compress"],
+    "decoder": ["decoder", "decoders", "decode", "reconstruction", "reconstruct"],
+    "latent": ["latent", "space", "representation", "dimension", "2d", "manifold", "distribution"],
+    "dbms": ["database", "management", "system", "dbms", "sql", "normalization"],
+    "os": ["operating", "system", "os", "scheduling", "deadlock"],
+    "ai": ["artificial", "intelligence", "ai"],
+    "ml": ["machine", "learning", "ml"],
+    "dl": ["deep", "learning", "dl", "neural", "networks"],
+    "svm": ["support", "vector", "machine", "svm"],
+    "pca": ["principal", "component", "analysis", "pca"]
+}
+
+CONCEPT_SYNONYMS = {
+    # Benefits / Advantages / Strengths / Merits
+    "advantage": {"benefit", "advantages", "benefits", "merit", "merits", "pro", "pros", "strength", "strengths", "utility", "usefulness", "value", "positive"},
+    "advantages": {"benefit", "advantage", "benefits", "merit", "merits", "pro", "pros", "strength", "strengths", "utility", "usefulness", "value", "positive"},
+    "benefit": {"advantage", "advantages", "benefits", "merit", "merits", "pro", "pros", "strength", "strengths", "utility", "usefulness", "value", "positive"},
+    "benefits": {"advantage", "advantages", "benefit", "merit", "merits", "pro", "pros", "strength", "strengths", "utility", "usefulness", "value", "positive"},
+    "merit": {"advantage", "advantages", "benefits", "merits", "pro", "pros", "strength", "utility"},
+    "merits": {"advantage", "advantages", "benefits", "merit", "pro", "pros", "strength", "utility"},
+    "usefulness": {"advantage", "advantages", "benefits", "utility", "value", "application", "applications"},
+    "utility": {"advantage", "advantages", "benefits", "usefulness", "application"},
+
+    # Drawbacks / Limitations / Disadvantages / Weaknesses
+    "disadvantage": {"disadvantages", "drawback", "drawbacks", "con", "cons", "demerit", "demerits", "limitation", "limitations", "weakness", "weaknesses", "shortcoming", "shortcomings"},
+    "disadvantages": {"disadvantage", "drawback", "drawbacks", "con", "cons", "demerit", "demerits", "limitation", "limitations", "weakness", "weaknesses", "shortcoming", "shortcomings"},
+    "drawback": {"disadvantage", "disadvantages", "drawbacks", "limitation", "limitations", "weakness", "weaknesses", "shortcoming", "shortcomings"},
+    "drawbacks": {"disadvantage", "disadvantages", "drawback", "limitation", "limitations", "weakness", "weaknesses", "shortcoming", "shortcomings"},
+    "limitation": {"disadvantage", "disadvantages", "drawback", "drawbacks", "limitations", "weakness", "weaknesses", "shortcoming", "shortcomings"},
+    "limitations": {"disadvantage", "disadvantages", "drawback", "drawbacks", "limitation", "weakness", "weaknesses", "shortcoming", "shortcomings"},
+    "weakness": {"disadvantage", "disadvantages", "drawback", "drawbacks", "limitation", "limitations", "weaknesses"},
+    "weaknesses": {"disadvantage", "disadvantages", "drawback", "drawbacks", "limitation", "limitations", "weakness"},
+
+    # Purpose / Objective / Aim / Goal / Role
+    "purpose": {"objective", "objectives", "aim", "aims", "goal", "goals", "role", "roles", "function", "functions", "intent", "target", "need"},
+    "objective": {"purpose", "purposes", "aim", "aims", "goal", "goals", "role", "roles", "function", "functions", "intent", "target"},
+    "objectives": {"purpose", "purposes", "objective", "aim", "aims", "goal", "goals", "role", "roles", "function", "functions"},
+    "aim": {"purpose", "objective", "objectives", "goal", "goals", "target", "aims"},
+    "goal": {"purpose", "objective", "objectives", "aim", "aims", "target", "goals"},
+    "role": {"purpose", "objective", "function", "functions", "importance", "role", "roles"},
+
+    # Definition / Meaning / Concept / Overview
+    "definition": {"define", "meaning", "concept", "what is", "explanation", "describe", "overview", "introduction"},
+    "define": {"definition", "meaning", "concept", "what is", "explain", "describe", "overview"},
+    "meaning": {"definition", "define", "concept", "what is", "explanation"},
+    "concept": {"definition", "define", "meaning", "principle", "theory", "overview", "concepts"},
+    "concepts": {"concept", "principles", "theory", "definitions", "meaning"},
+
+    # Difference / Comparison / Contrast
+    "difference": {"differences", "compare", "comparison", "contrast", "distinction", "distinguish", "vs", "versus", "differ", "differs"},
+    "differences": {"difference", "compare", "comparison", "contrast", "distinction", "distinguish", "vs", "versus"},
+    "compare": {"difference", "differences", "comparison", "contrast", "distinction", "distinguish", "vs"},
+    "comparison": {"difference", "differences", "compare", "contrast", "distinction", "distinguish", "vs"},
+    "contrast": {"difference", "differences", "compare", "comparison", "distinction", "distinguish", "vs"},
+
+    # Applications / Uses / Implementation
+    "application": {"applications", "use", "uses", "usage", "utilized", "applied", "implementation", "real-world"},
+    "applications": {"application", "use", "uses", "usage", "utilized", "applied", "implementation", "real-world"},
+    "use": {"application", "applications", "uses", "usage", "utilized", "applied"},
+    "uses": {"application", "applications", "use", "usage", "utilized", "applied"},
+
+    # Workflow / Mechanism / Steps / Process
+    "mechanism": {"workflow", "process", "procedure", "how it works", "working", "steps", "algorithm", "execution", "operation", "architecture"},
+    "workflow": {"mechanism", "process", "procedure", "steps", "algorithm", "execution", "working", "pipeline"},
+    "process": {"workflow", "mechanism", "procedure", "steps", "method", "pipeline", "working"},
+    "working": {"how it works", "mechanism", "workflow", "process", "operation", "execution", "procedure"},
+    "steps": {"process", "workflow", "procedure", "algorithm", "stages", "pipeline"},
+
+    # Types / Categories / Classification
+    "type": {"types", "kind", "kinds", "category", "categories", "classification", "classes", "variants", "forms"},
+    "types": {"type", "kind", "kinds", "category", "categories", "classification", "classes", "variants", "forms"},
+    "category": {"categories", "type", "types", "classification", "classes", "variants"},
+    "categories": {"category", "type", "types", "classification", "classes", "variants"},
+    "classification": {"categories", "types", "categorization", "classes", "taxonomy", "labeling", "grouping"},
+    "categorization": {"classification", "types", "categories", "labeling"},
+
+    # Components / Architecture / Elements / Layers
+    "component": {"components", "part", "parts", "element", "elements", "architecture", "structure", "module", "modules", "layer", "layers"},
+    "components": {"component", "part", "parts", "element", "elements", "architecture", "structure", "module", "modules", "layer", "layers"},
+    "architecture": {"structure", "design", "framework", "components", "layers", "model", "organization"},
+    "layer": {"layers", "level", "levels", "component", "components", "stage", "stages"},
+    "layers": {"layer", "level", "levels", "components", "stages"},
+
+    # Characteristics / Features / Properties
+    "characteristic": {"characteristics", "feature", "features", "property", "properties", "trait", "traits", "attribute", "attributes"},
+    "characteristics": {"characteristic", "feature", "features", "property", "properties", "trait", "traits", "attribute", "attributes"},
+    "feature": {"features", "characteristics", "property", "properties", "attribute", "attributes"},
+    "features": {"feature", "characteristics", "property", "properties", "attribute", "attributes"},
+    "property": {"properties", "feature", "features", "characteristics", "trait", "traits"},
+    "properties": {"property", "feature", "features", "characteristics", "traits"},
+
+    # Reason / Cause / Why
+    "reason": {"reasons", "cause", "causes", "why", "factor", "factors", "origin", "basis"},
+    "reasons": {"reason", "cause", "causes", "why", "factors", "basis"},
+    "cause": {"reason", "reasons", "causes", "why", "factor", "factors", "leads to", "results in"},
+    "causes": {"cause", "reason", "reasons", "why", "factors"},
+
+    # Formula / Metric / Calculation
+    "formula": {"formulas", "equation", "equations", "math", "calculation", "metric", "metrics", "rule"},
+    "formulas": {"formula", "equation", "equations", "calculations", "metrics"},
+    "equation": {"formula", "formulas", "equations", "math", "metric"},
+    "metric": {"metrics", "measure", "measurement", "evaluation", "formula", "score"},
+    "metrics": {"metric", "measure", "evaluation", "score", "scores"},
+
+    # Conclusion / Results / Last page / Summary
+    "conclusion": {"conclusions", "summary", "takeaway", "takeaways", "findings", "closing", "result", "results", "last", "final"},
+    "conclusions": {"conclusion", "summary", "takeaway", "findings", "results", "final"},
+    "result": {"results", "outcome", "outcomes", "finding", "findings", "conclusion", "performance"},
+    "results": {"result", "outcome", "outcomes", "findings", "conclusion", "conclusions"},
+    "last": {"final", "end", "conclusion", "closing", "bottom", "last page"},
+    "first": {"initial", "beginning", "introduction", "opening", "start", "first page"},
+
+    # ML & CS domain concepts
+    "error": {"loss", "cost", "deviation", "penalty", "mistake", "residual"},
+    "loss": {"cost", "error", "penalty", "deviation", "objective"},
+    "cost": {"loss", "error", "penalty", "objective"},
+    "partition": {"split", "divide", "segment", "cluster", "separate"},
+    "split": {"partition", "divide", "segment", "separate"},
+    "blurry": {"blur", "fuzzy", "smoothing", "smooth", "indistinct"},
+    "blur": {"blurry", "fuzzy", "smoothing", "smooth"},
+    "fuzzy": {"blurry", "blur", "indistinct", "smoothing"},
+    "stochastic": {"probabilistic", "distribution", "random", "gaussian", "sampling"},
+    "probabilistic": {"stochastic", "distribution", "random", "uncertainty"},
+    "deterministic": {"fixed", "exact", "static", "constant"},
+    "weights": {"parameters", "synaptic", "coefficients"},
+    "weight": {"weights", "parameter", "parameters"},
+    "node": {"nodes", "neuron", "neurons", "unit", "units"},
+    "nodes": {"node", "neuron", "neurons", "units"},
+    "neuron": {"neurons", "node", "nodes", "unit", "units"},
+    "neurons": {"neuron", "node", "nodes", "units"},
+    "continuous": {"manifold", "smooth", "unbroken"},
+    "dataset": {"corpus", "collection", "database", "samples", "data"}
+}
+
 def terms_match(q_term: str, doc_term: str) -> bool:
-    """Matches two terms considering roots, stems, prefixes, and morphological variations."""
+    """Matches two terms considering roots, stems, prefixes, acronyms, and conceptual synonyms."""
     q_term = q_term.lower().strip()
     doc_term = doc_term.lower().strip()
     if q_term == doc_term:
@@ -51,67 +206,122 @@ def terms_match(q_term: str, doc_term: str) -> bool:
     d_stem = word_stem(doc_term)
     if q_stem == d_stem:
         return True
-    if len(q_stem) >= 4 and len(d_stem) >= 4 and (doc_term.startswith(q_stem) or q_term.startswith(d_stem) or d_stem.startswith(q_stem) or q_stem.startswith(d_stem)):
+    if len(q_stem) >= 4 and len(d_stem) >= 4 and (doc_term.startswith(q_stem) or q_term.startswith(d_stem)):
+        return True
+    # Concept synonyms match
+    if q_term in CONCEPT_SYNONYMS and doc_term in CONCEPT_SYNONYMS[q_term]:
+        return True
+    if doc_term in CONCEPT_SYNONYMS and q_term in CONCEPT_SYNONYMS[doc_term]:
+        return True
+    if q_stem in CONCEPT_SYNONYMS and (doc_term in CONCEPT_SYNONYMS[q_stem] or d_stem in CONCEPT_SYNONYMS[q_stem]):
+        return True
+    if d_stem in CONCEPT_SYNONYMS and (q_term in CONCEPT_SYNONYMS[d_stem] or q_stem in CONCEPT_SYNONYMS[d_stem]):
+        return True
+    # Acronym match
+    if q_term in ACRONYM_SYMS and doc_term in ACRONYM_SYMS[q_term]:
+        return True
+    if doc_term in ACRONYM_SYMS and q_term in ACRONYM_SYMS[doc_term]:
         return True
     return False
+
+def expand_query_terms(query: str) -> set:
+    """Expands query with domain terms, acronyms, and conceptual synonyms."""
+    raw_words = re.findall(r"\b[a-zA-Z]{2,}\b", query.lower())
+    domain_words = set(w for w in raw_words if w not in RAG_STOP_WORDS)
+    expanded = set(domain_words)
+    for w in list(domain_words):
+        if w in ACRONYM_SYMS:
+            expanded.update(ACRONYM_SYMS[w])
+        for acr, terms in ACRONYM_SYMS.items():
+            if w in terms:
+                expanded.add(acr)
+                expanded.update(terms)
+        if w in CONCEPT_SYNONYMS:
+            expanded.update(CONCEPT_SYNONYMS[w])
+        w_stem = word_stem(w)
+        if w_stem in CONCEPT_SYNONYMS:
+            expanded.update(CONCEPT_SYNONYMS[w_stem])
+    return expanded
 
 async def retrieve_context_chunks(
     query: str,
     material_ids: Optional[List[str]] = None,
     user_id: Optional[str] = None,
     is_admin: bool = False,
-    top_k: int = 5
+    top_k: int = 8
 ) -> List[Dict[str, Any]]:
     """
     Retrieves the most semantically relevant text chunks from the selected materials or across all authorized notes.
-    Ensures active document chunks are always available to grounded answer generators.
+    Combines dense vector similarity with lexical and conceptual synonym matching (hybrid search).
+    Preserves exact page numbers and never restricts retrieval to just the first few pages.
     """
     db = get_db()
     if db is None:
         return []
 
-    # Filter by selected materials if specified; otherwise search across all approved student notes
-    valid_ids = [str(mid) for mid in (material_ids or []) if mid]
+    # 1. Resolve all candidate material IDs (strings, ObjectIds, documentIds)
+    valid_ids = [str(mid).strip() for mid in (material_ids or []) if mid and str(mid).strip()]
+    all_target_ids = set(valid_ids)
+
+    if db is not None and valid_ids:
+        for mid in valid_ids:
+            try:
+                m_filter = []
+                if ObjectId.is_valid(mid):
+                    m_filter.append({"_id": ObjectId(mid)})
+                m_filter.extend([{"_id": mid}, {"documentId": mid}, {"id": mid}])
+                m_doc = await db["materials"].find_one({"$or": m_filter})
+                if m_doc:
+                    all_target_ids.add(str(m_doc.get("_id", "")))
+                    if m_doc.get("documentId"):
+                        all_target_ids.add(str(m_doc["documentId"]))
+            except Exception:
+                pass
+
     query_filter: Dict[str, Any] = {
         "status": {"$nin": ["REJECTED", "ADMIN_REJECTED"]}
     }
-    if valid_ids:
-        query_filter["materialId"] = {"$in": valid_ids}
+    if all_target_ids:
+        id_list = list(all_target_ids)
+        query_filter["materialId"] = {"$in": id_list}
 
     cursor = db["document_chunks"].find(query_filter)
-    chunks = await cursor.to_list(length=1000)
-    if not chunks:
-        # If no chunks in collection yet, check if we can index them on-the-fly from materials
+    chunks = await cursor.to_list(length=2000)
+
+    # 2. Resilient On-The-Fly Chunk Indexing across ALL pages if document_chunks has no chunks
+    if not chunks and all_target_ids:
         from app.services.embedding_service import index_document_chunks
         from app.services.text_extract import extract_document_pages
         from app.storage.factory import get_storage
 
         storage = get_storage()
-        target_ids = valid_ids
-        if not target_ids:
-            # Load all approved materials
-            mats_cursor = db["materials"].find({"status": {"$nin": ["REJECTED", "ADMIN_REJECTED"]}}).limit(20)
-            target_docs = await mats_cursor.to_list(length=20)
-            target_ids = [str(d["_id"]) for d in target_docs]
-
-        for mid in target_ids:
+        for mid in list(all_target_ids):
             try:
-                m_doc = await db["materials"].find_one({"_id": ObjectId(mid) if ObjectId.is_valid(mid) else mid})
+                m_filter = []
+                if ObjectId.is_valid(mid):
+                    m_filter.append({"_id": ObjectId(mid)})
+                m_filter.extend([{"_id": mid}, {"documentId": mid}, {"id": mid}])
+                m_doc = await db["materials"].find_one({"$or": m_filter})
                 if m_doc and m_doc.get("status") not in ["REJECTED", "ADMIN_REJECTED"]:
-                    if m_doc.get("storageKey"):
-                        buf = await storage.download(m_doc["storageKey"])
-                        pages = extract_document_pages(buf, m_doc.get("extension", ".pdf"))
-                        if pages:
-                            await index_document_chunks(
-                                material_id=str(m_doc["_id"]),
-                                title=m_doc.get("title", "Study Material"),
-                                pages_text=pages,
-                                uploader_id=str(m_doc.get("uploader", "")),
-                                status=m_doc.get("status", "ADMIN_APPROVED")
-                            )
-                            cursor = db["document_chunks"].find(query_filter)
-                            chunks = await cursor.to_list(length=1000)
-                    
+                    pages = None
+                    storage_key = m_doc.get("storageKey")
+                    if storage_key:
+                        try:
+                            buf = await storage.download(storage_key)
+                            pages = extract_document_pages(buf, m_doc.get("extension", ".pdf"))
+                        except Exception as dl_err:
+                            logger.debug("Storage download notice for %s: %s", storage_key, dl_err)
+                    if pages:
+                        await index_document_chunks(
+                            material_id=str(m_doc["_id"]),
+                            title=m_doc.get("title", "Study Material"),
+                            pages_text=pages,
+                            uploader_id=str(m_doc.get("uploader", "")),
+                            status=m_doc.get("status", "ADMIN_APPROVED")
+                        )
+                        cursor = db["document_chunks"].find(query_filter)
+                        chunks = await cursor.to_list(length=2000)
+
                     if not chunks:
                         # Fallback to document summary/description as chunk
                         chunks.append({
@@ -127,69 +337,54 @@ async def retrieve_context_chunks(
     if not chunks:
         return []
 
+    # 3. Hybrid search: Dense Embedding + Lexical Stem + Concept Synonym Overlap + Page Intent
     q_embedding = await get_text_embedding(query)
-    raw_q_words = re.findall(r"\b[a-zA-Z]{2,}\b", query.lower())
-    q_domain_words = set(w for w in raw_q_words if w not in RAG_STOP_WORDS)
+    clean_q_low = query.lower().strip()
+    expanded_domain_words = expand_query_terms(query)
 
-    # Expand domain words bidirectionally with academic acronym synonyms
-    expanded_domain_words = set(q_domain_words)
-    for w in list(q_domain_words):
-        if w in ACRONYM_SYMS:
-            expanded_domain_words.update(ACRONYM_SYMS[w])
-        for acr, terms in ACRONYM_SYMS.items():
-            if w in terms:
-                expanded_domain_words.add(acr)
-                expanded_domain_words.update(terms)
+    is_last_page_q = any(k in clean_q_low for k in ["last page", "final page", "conclusion", "conclusions", "end of notes", "final section", "takeaways", "results on the last page"])
+    is_first_page_q = any(k in clean_q_low for k in ["first page", "page 1", "introduction", "beginning", "initial", "start of notes"])
+
+    max_p = max((c.get("pageNumber") or 1) for c in chunks) if chunks else 1
 
     scored = []
-    clean_q_low = query.lower().strip()
     for c in chunks:
         emb = c.get("embedding")
         sim = cosine_similarity(q_embedding, emb) if emb else 0.20
         c_text = c.get("text", "").lower()
         c_title = c.get("title", "").lower()
+        c_page = c.get("pageNumber") or 1
         c_tokens = re.findall(r"\b[a-zA-Z0-9_-]+\b", c_text + " " + c_title)
-        
-        # Word overlap on genuine domain terms (expanded bidirectionally with root stemming)
-        overlap = sum(1 for w in expanded_domain_words if any(terms_match(w, cw) for cw in c_tokens))
-        
+
+        # Word overlap on genuine domain terms (expanded with root stemming, acronyms, and synonyms)
+        matched_words = sum(1 for w in expanded_domain_words if any(terms_match(w, cw) for cw in c_tokens))
+        overlap_ratio = matched_words / max(1, len(expanded_domain_words)) if expanded_domain_words else 0.0
+
         phrase_boost = 0.0
         if clean_q_low and len(clean_q_low) >= 4 and (clean_q_low in c_text or clean_q_low in c_title):
-            phrase_boost = 0.25
+            phrase_boost = 0.30
         elif any(len(p) >= 4 and (p in c_text or p in c_title) for p in expanded_domain_words):
-            phrase_boost = 0.10
+            phrase_boost = 0.15
 
-        # If user asked specific domain terms and none exist in chunk/title, reject chunk unless embedding similarity is high
-        if expanded_domain_words and overlap == 0 and phrase_boost == 0 and sim < 0.35:
-            continue
+        page_intent_boost = 0.0
+        if is_last_page_q and c_page >= max_p:
+            page_intent_boost = 0.35
+        elif is_first_page_q and c_page == 1:
+            page_intent_boost = 0.35
 
-        boost = min(0.40, (overlap * 0.08) + phrase_boost)
-        final_score = sim + boost
-        
-        if final_score >= 0.20:
-            scored.append({
-                "materialId": c["materialId"],
-                "title": c.get("title", "Document"),
-                "pageNumber": c.get("pageNumber", 1),
-                "text": c.get("text", ""),
-                "score": final_score
-            })
+        # Hybrid score combining dense similarity and lexical/synonym overlap
+        hybrid_score = (0.35 * sim) + (0.40 * min(1.0, overlap_ratio * 1.5)) + (0.15 * phrase_boost) + (0.10 * page_intent_boost)
 
-    scored.sort(key=lambda x: x["score"], reverse=True)
-    if scored:
-        return scored[:top_k]
-
-    # Contextual Fallback: If strict threshold filtered out chunks, retain top chunks of active selected material
-    fallback_scored = []
-    for c in chunks:
-        fallback_scored.append({
+        scored.append({
             "materialId": c.get("materialId", ""),
             "title": c.get("title", "Document"),
-            "pageNumber": c.get("pageNumber", 1),
+            "pageNumber": c_page,
             "text": c.get("text", ""),
-            "score": 0.50
+            "score": round(float(hybrid_score), 4)
         })
-    return fallback_scored[:top_k]
+
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    return scored[:max(8, top_k)]
 
 # Comprehensive Academic Knowledge Base for Instant, High-Quality Fallbacks
 ACADEMIC_KNOWLEDGE_BASE = {
@@ -1194,25 +1389,28 @@ MODULE_SUMMARIES_BY_SUBJECT = {
 
 SYSTEM_PROMPT_CHATGPT_STYLE = (
     "You are CampusVerse's intelligent academic study assistant and notes tutor.\n"
-    "Your mission is to help students understand their uploaded study materials with short, intelligent, student-friendly explanations strictly grounded in their uploaded notes.\n\n"
+    "Your mission is to help students understand their uploaded study materials with clear, intelligent, student-friendly explanations strictly grounded in their uploaded notes.\n\n"
     "RESPONSE STYLE & TONE GUIDELINES (MANDATORY):\n"
     "1. Simple English: Speak clearly and naturally without convoluted jargon.\n"
-    "2. Short and Meaningful: Provide direct, high-value answers without unnecessary conversational fluff or lengthy introductory filler.\n"
+    "2. Direct & Meaningful: Provide direct, high-value answers without unnecessary conversational fluff or lengthy introductory filler.\n"
     "3. No Unnecessary Introductions or Repeated Answers: Jump straight into the concept or definition.\n"
     "4. Clean Formatting: Use concise bullet points for properties, lists, or steps, and bold terms for technical keywords.\n"
-    "5. Simple Examples: Include intuitive examples when they clarify the concept.\n\n"
+    "5. Intuitive Explanations: Include intuitive examples from the notes when they clarify the concept.\n\n"
     "CRITICAL GROUNDING & ACCURACY RULES:\n"
     "1. EXCLUSIVE SOURCE OF TRUTH: Ground all answers in the provided STUDY NOTES CONTEXT. Never invent facts or hallucinate external information.\n"
-    "2. HANDLING MISSING TOPICS: If a specific concept or topic cannot be found in the uploaded notes, respond EXACTLY with:\n"
+    "2. NEVER REJECT DUE TO WORDING OR SYNONYMS: Never reject a question simply because its wording differs from the notes. Actively understand synonyms, paraphrased questions, and conceptual questions (e.g., benefits <-> advantages, purpose <-> objective, error <-> loss, split <-> partition).\n"
+    "3. SEARCH COMPLETE DOCUMENT: Search across all excerpts provided (including first page, middle pages, and last page) before concluding information is absent.\n"
+    "4. PARTIAL COVERAGE: If the answer is partially available in the notes, explain the available information thoroughly rather than rejecting the entire question. Clearly specify which part is covered in the notes.\n"
+    "5. HANDLING MISSING ACADEMIC TOPICS: ONLY if a specific concept or topic cannot be found anywhere in the uploaded notes after considering synonyms and paraphrasing, respond EXACTLY with:\n"
     "   \"This topic is not available in the uploaded notes. Please upload the relevant study material.\"\n"
-    "3. HANDLING UNRELATED QUESTIONS: If a student asks an off-topic or unrelated question (such as weather, recipes, movies, sports, personal conversations, resume writing, internship advertisements, or general trivia):\n"
+    "6. HANDLING UNRELATED QUESTIONS: If a student asks an off-topic or non-academic question (such as weather, cooking recipes, movies, sports, personal conversations, resume writing, or general trivia):\n"
     "   \"I'm CampusVerse's study assistant. I can help you with questions related to the academic notes uploaded here.\"\n"
-    "4. INTELLIGENT QUESTION UNDERSTANDING:\n"
+    "7. INTELLIGENT QUESTION UNDERSTANDING:\n"
     "   - One-word questions (e.g., 'VAE'): Briefly explain the core concept based on the uploaded notes.\n"
     "   - Short queries (e.g., 'encoder?'): Explain what the component is directly and concisely.\n"
+    "   - Content on last page / first page: Directly answer from that respective section.\n"
     "   - Informal shorthand & keywords (e.g., 'why blurry', 'latent space 2d', 'difference AE VAE'): Recognize the student's intent immediately and provide a focused, student-friendly answer.\n"
-    "   - Follow-up questions (e.g., 'why is it used?', 'what are its limitations?', 'explain the second point'): Resolve pronouns ('it', 'this', 'that') and numbered points from the previous conversation turns smoothly.\n"
-    "   - Never reject an academic question simply because it is phrased informally or differently from the uploaded material."
+    "   - Follow-up questions: Resolve pronouns ('it', 'this', 'that') from previous conversation turns smoothly."
 )
 
 BRIEF_DEFINITIONS_BY_TOPIC = {

@@ -392,17 +392,42 @@ def summarize_chunk(chunk_pages: List[str], start_page: int, end_page: int) -> s
 
     return " ".join(formatted_parts)
 
-async def call_gemini_summarizer(title: str, full_text: str, page_count: int, max_words: int, document_id: str = "") -> Optional[str]:
+async def call_gemini_summarizer(
+    title: str,
+    full_text: str,
+    page_count: int,
+    max_words: int,
+    document_id: str = "",
+    pages_text: Optional[List[str]] = None
+) -> Optional[str]:
     """
     Calls Gemini API with strict grounding instructions:
     Summarize ONLY from the provided extracted document text. Never hallucinate or use external text.
-    Returns a Markdown-formatted summary with headings, bullet points, bold text, and a separate formulas section.
+    For large documents, employs multi-stage hierarchical summarization so the entire document
+    from page 1 to the final page is analyzed without truncation.
     """
     if not getattr(settings, "GEMINI_API_KEY", None):
         return None
 
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
+
+        # Multi-stage summarization for large documents
+        context_body = full_text
+        if pages_text and (len(pages_text) > 10 or len(full_text) > 30000):
+            # Stage 1: Partition pages into chunks and generate intermediate digests
+            chunk_size = max(3, len(pages_text) // 6)
+            digests = []
+            for i in range(0, len(pages_text), chunk_size):
+                slice_pages = pages_text[i : i + chunk_size]
+                start_p = i + 1
+                end_p = min(len(pages_text), i + len(slice_pages))
+                slice_summary = summarize_chunk(slice_pages, start_p, end_p)
+                if slice_summary.strip():
+                    digests.append(f"[Pages {start_p}-{end_p}]: {slice_summary}")
+            if digests:
+                context_body = "\n\n".join(digests)
+
         prompt = (
             f"You are the CampusVerse Academic Document Summarizer.\n"
             f"TASK: Generate a comprehensive, well-structured academic summary for the document '{title}' (Document ID: {document_id}, {page_count} pages).\n\n"
@@ -422,7 +447,7 @@ async def call_gemini_summarizer(title: str, full_text: str, page_count: int, ma
             f"7. End with a '## Conclusion' heading summarizing the key takeaways in 1-2 sentences.\n"
             f"8. Keep content clean, well-spaced, and easy for students to understand.\n"
             f"9. Do NOT output everything as one large paragraph. Break it into clear sections.\n\n"
-            f"DOCUMENT EXTRACTED TEXT:\n{full_text[:40000]}"
+            f"DOCUMENT EXTRACTED TEXT (Covering all {page_count} pages):\n{context_body[:40000]}"
         )
 
         payload = {
@@ -433,7 +458,7 @@ async def call_gemini_summarizer(title: str, full_text: str, page_count: int, ma
             }
         }
 
-        async with httpx.AsyncClient(timeout=6.0) as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(url, json=payload)
             if resp.status_code == 200:
                 data = resp.json()
@@ -842,7 +867,7 @@ async def generate_document_summary(
 
     # Attempt Gemini call if API key configured
     if getattr(settings, "GEMINI_API_KEY", None):
-        ai_summary = await call_gemini_summarizer(title, full_text, total_pages, max_words, document_id)
+        ai_summary = await call_gemini_summarizer(title, full_text, total_pages, max_words, document_id, pages_text=pages_text)
         if ai_summary:
             words = ai_summary.split()
             if len(words) > max_words:

@@ -4,12 +4,12 @@ import axios from "axios";
 // In production, fallback to relative "/api" so requests go to the same origin if no external URL is set
 let rawBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
 
-if (!rawBase || rawBase.includes("localhost:5000")) {
+if (!rawBase || rawBase.includes("localhost") || rawBase.includes("127.0.0.1")) {
   if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-    // We are on a deployed public URL (e.g. Railway or Render) -> use relative /api
+    // We are on a deployed public URL (e.g. Koyeb, Render, Back4App, Vercel) -> use relative /api
     rawBase = "/api";
   } else {
-    rawBase = "http://localhost:5000/api";
+    rawBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/+$/, "");
   }
 }
 

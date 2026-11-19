@@ -1,23 +1,42 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
+# Dependencies
 /node_modules
 /.pnp
 .pnp.js
 
-# testing
+# Python environment & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+
+# Local data & uploads
+/uploads/*
+!/uploads/.gitkeep
+/scratch/
+
+# Testing & Coverage
 /coverage
 
-# production
-/build
-
-# misc
-.DS_Store
+# Environment & Secrets (Never commit credentials)
+.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# System artifacts & reports
+.DS_Store
+Thumbs.db
+CampusVerse_Capstone_Project_Report.*
