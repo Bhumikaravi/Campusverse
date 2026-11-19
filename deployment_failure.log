@@ -1,0 +1,113 @@
+================================================================================
+CAMPUSVERSE — PRODUCTION DEPLOYMENT & RUNTIME FAILURE LOG STREAM
+Applications / Cloud Platforms: Render.com, Back4App Containers, Koyeb
+Generated: November 19, 2026
+================================================================================
+
+--------------------------------------------------------------------------------
+[LOG ENTRY 1: RENDER.COM — NATIVE PYTHON RUNTIME DEPLOYMENT CRASH]
+--------------------------------------------------------------------------------
+Service: campusverse-api (Render Web Service)
+Runtime: Python 3.12 (Native VM)
+Trigger: Server startup executing `uvicorn main:app --host 0.0.0.0 --port $PORT`
+
+==> Running 'uvicorn main:app --host 0.0.0.0 --port 10000'
+Traceback (most recent call last):
+  File "/opt/render/project/src/.venv/lib/python3.12/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/opt/render/project/src/backend/main.py", line 15, in <module>
+    from app.routers import (
+  File "/opt/render/project/src/backend/app/routers/__init__.py", line 2, in <module>
+    from .materials import router as materials_router
+  File "/opt/render/project/src/backend/app/routers/materials.py", line 45, in <module>
+    from app.services.text_extract import extract_document_content
+  File "/opt/render/project/src/backend/app/services/text_extract.py", line 26, in <module>
+    from rapidocr_onnxruntime import RapidOCR
+  File "/opt/render/project/src/.venv/lib/python3.12/site-packages/rapidocr_onnxruntime/__init__.py", line 1, in <module>
+    from .rapid_ocr_api import RapidOCR
+  File "/opt/render/project/src/.venv/lib/python3.12/site-packages/rapidocr_onnxruntime/rapid_ocr_api.py", line 12, in <module>
+    import cv2
+  File "/opt/render/project/src/.venv/lib/python3.12/site-packages/cv2/__init__.py", line 181, in <module>
+    bootstrap()
+  File "/opt/render/project/src/.venv/lib/python3.12/site-packages/cv2/__init__.py", line 153, in bootstrap
+    native_module = importlib.import_module("cv2")
+ImportError: libGL.so.1: cannot open shared object file: No such file or directory
+==> Exited with status 1
+==> Deploy failed
+[DIAGNOSIS]: Native Python runtime lacks Debian OpenGL dynamic C-libraries required by cv2.
+[FIX]: Switched deployment pipeline to Docker container (`Dockerfile`) with `apt-get install -y libgl1 libglib2.0-0`.
+
+
+--------------------------------------------------------------------------------
+[LOG ENTRY 2: RENDER.COM — 512MB RAM EXHAUSTION (SIGKILL EXIT CODE 137)]
+--------------------------------------------------------------------------------
+Service: campusverse-api (Render Free Tier - 512MB RAM ceiling)
+Trigger: Neural network pre-warming on container startup
+
+2026-11-14 20:05:12.102 [INFO] campusverse: Initializing CampusVerse FastAPI Backend...
+2026-11-14 20:05:12.350 [INFO] campusverse.database: Connecting to MongoDB Atlas cluster...
+2026-11-14 20:05:13.112 [INFO] campusverse.database: Successfully connected to MongoDB database 'campusverse'
+2026-11-14 20:05:13.890 [INFO] campusverse.lifespan: Pre-warming RapidOCR neural network inference engine...
+2026-11-14 20:05:14.410 [INFO] rapidocr_onnxruntime: Loading detection model ch_PP-OCRv4_det_infer.onnx into RAM...
+2026-11-14 20:05:15.902 [INFO] rapidocr_onnxruntime: Loading recognition model ch_PP-OCRv4_rec_infer.onnx into RAM...
+==> Out of memory (used over 512Mi)
+==> [kernel] Task uvicorn (pid 42) slaughtered by oom_reaper; invoked by oom-killer
+==> Exited with status 137 (out of memory)
+==> Service process died unexpectedly
+==> Deploy failed
+[DIAGNOSIS]: ONNX model pre-warming consumed ~350MB, exceeding 512MB container quota.
+[FIX]: Removed eager pre-warming from lifespan in main.py; memory consumption reduced to <60MB.
+
+
+--------------------------------------------------------------------------------
+[LOG ENTRY 3: BACK4APP — HTTP 502 BAD GATEWAY / ONNX RUNTIME SEGFAULT]
+--------------------------------------------------------------------------------
+Target: https://campusverse-ht3d6l6s.back4.app/api/materials/preview-summary
+Trigger: Multi-threaded OCR extraction on uploaded PDF
+
+2026-11-14T21:40:12.891Z [nginx-ingress] 10.0.4.12 - - "POST /api/materials/preview-summary HTTP/1.1" 502 157 "https://campusverse-ht3d6l6s.back4.app/dashboard"
+2026-11-14T21:40:12.893Z [back4app-monitor] Container process terminated unexpectedly with exit code 139 (SIGSEGV).
+2026-11-14T21:40:12.894Z [back4app-monitor] Upstream connection dropped while reading response header from upstream.
+
+Fatal Python error: Segmentation fault in C-extension
+Thread 0x00007f3b8c2a9700 (most recent call first):
+  File "/usr/local/lib/python3.12/site-packages/onnxruntime/capi/onnxruntime_inference_collection.py", line 220 in run
+  File "/usr/local/lib/python3.12/site-packages/rapidocr_onnxruntime/rapid_ocr_api.py", line 74 in __call__
+  File "/app/app/services/text_extract.py", line 105 in try_ocr_on_image_bytes
+  File "/app/app/services/text_extract.py", line 372 in process_page_ocr
+  File "/usr/local/lib/python3.12/concurrent/futures/thread.py", line 58 in run
+Segmentation fault (core dumped)
+Process exited with code 139.
+[DIAGNOSIS]: ThreadPoolExecutor caused concurrent multi-threaded C++ race conditions in onnxruntime.so.
+[FIX]: Replaced concurrent threading with safe sequential OCR pipeline.
+
+
+--------------------------------------------------------------------------------
+[LOG ENTRY 4: BACK4APP — HTTP 504 GATEWAY TIMEOUT]
+--------------------------------------------------------------------------------
+Target: https://campusverse-6mlyb27q.back4.app/api/materials/preview-summary
+Trigger: Heavy OCR executed across 20+ digital lecture slides
+
+2026-11-14T21:21:45.102Z [nginx-ingress] 10.0.2.18 - - "POST /api/materials/preview-summary HTTP/1.1" 504 167 "https://campusverse-6mlyb27q.back4.app/dashboard"
+2026-11-14T21:21:45.104Z [nginx-ingress] upstream timed out (110: Connection timed out) while reading response header from upstream, client: 172.56.21.9, server: campusverse-6mlyb27q.back4.app, request: "POST /api/materials/preview-summary HTTP/1.1", upstream: "http://10.244.3.88:5000/api/materials/preview-summary"
+[DIAGNOSIS]: Slide OCR processing duration (75s+) exceeded cloud proxy's 60-second limit.
+[FIX]: Added PyMuPDF digital text fast-path; digital slides now extract in 0.05 seconds.
+
+
+--------------------------------------------------------------------------------
+[LOG ENTRY 5: KOYEB — NEW USER ONBOARDING GATE (MISTRAL ACQUISITION)]
+--------------------------------------------------------------------------------
+Target: https://app.koyeb.com/
+Trigger: HTTP GET navigation to dashboard or API token generation page
+
+HTTP/2 302 Found
+location: /
+date: Wed, 19 Nov 2026 09:20:24 GMT
+server: cloudflare
+
+<div class="announcement">
+  <h1>Koyeb is joining Mistral! Stay tuned for a revamped Agentic experience.</h1>
+  <p>Deploying AI workloads at scale? Let us know, we'd love to see how we can help.</p>
+</div>
+[DIAGNOSIS]: Platform-side holding screen gating self-service app creation on newly registered student accounts.
+================================================================================
