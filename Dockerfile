@@ -16,9 +16,10 @@ COPY backend/ ./
 # Copy pre-built frontend distribution directly
 COPY frontend/dist ./frontend_dist
 
-# Default port
-ENV PORT=5000
+# Default port (Koyeb standard is 8000)
+ENV PORT=8000
+EXPOSE 8000
 EXPOSE 5000
 
-# Start Uvicorn bound to Railway's assigned port
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-5000}"]
+# Start Uvicorn bound to platform's assigned port (falls back to 8000)
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
