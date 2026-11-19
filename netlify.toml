@@ -1,14 +1,9 @@
 [build]
-  command = "npm run build"
-  publish = "dist"
-
-[[redirects]]
-  from = "/api/*"
-  to = "BACKEND_URL_PLACEHOLDER/api/:splat"
-  status = 200
-  force = true
+  command = "npm --prefix frontend install && npm --prefix frontend run build"
+  publish = "frontend/dist"
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
