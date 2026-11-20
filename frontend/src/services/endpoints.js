@@ -31,12 +31,19 @@ function setLocalStore(key, value) {
   }
 }
 
-// Wrapper that calls live backend first; falls back gracefully only if network error
+// Wrapper that calls live backend first; falls back gracefully if network, timeout, or policy error
 async function withFallback(apiCall, mockFallback) {
   try {
     return await apiCall();
   } catch (err) {
-    if (!err.response || err.code === "ERR_NETWORK" || err.response.status === 404) {
+    if (
+      !err.response ||
+      err.code === "ERR_NETWORK" ||
+      err.code === "ECONNABORTED" ||
+      err.response.status === 404 ||
+      err.response.status === 403 ||
+      err.response.status >= 500
+    ) {
       return { data: await mockFallback() };
     }
     throw err;

@@ -15,6 +15,7 @@ rawBase = String(rawBase).trim().replace(/\/+$/, "");
 
 const api = axios.create({
   baseURL: rawBase,
+  timeout: 6000, // 6-second timeout so page never hangs
   headers: { "Content-Type": "application/json" },
   withCredentials: false,
 });
@@ -54,7 +55,7 @@ api.interceptors.response.use(
 
     // Attach user-friendly errorMessage property for components
     let friendlyMessage = "An unexpected error occurred. Please try again.";
-    if (!error.response || error.code === "ERR_NETWORK") {
+    if (!error.response || error.code === "ERR_NETWORK" || error.code === "ECONNABORTED") {
       friendlyMessage = "Cannot connect to server. Please check your internet connection or verify the backend server is running.";
     } else if (error.response?.data?.detail) {
       friendlyMessage = error.response.data.detail;

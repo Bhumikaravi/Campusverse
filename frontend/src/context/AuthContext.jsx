@@ -3,57 +3,45 @@ import { authApi } from "../services/endpoints";
 
 const AuthContext = createContext(null);
 
-// Set to false to use the live FastAPI + MongoDB backend
-const DEMO_MODE = false;
-
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem("cv-user");
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem("cv-user");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (DEMO_MODE) {
+    const token = localStorage.getItem("cv-token");
+    if (!token) {
       setLoading(false);
       return;
     }
-    const token = localStorage.getItem("cv-token");
+
+    setLoading(true);
     authApi
       .me()
       .then((res) => {
         const currentUser = res.data?.user || res.data;
-        setUser(currentUser);
-        localStorage.setItem("cv-user", JSON.stringify(currentUser));
+        if (currentUser) {
+          setUser(currentUser);
+          localStorage.setItem("cv-user", JSON.stringify(currentUser));
+        }
       })
       .catch(() => {
-        if (!token) {
-          localStorage.removeItem("cv-user");
-          setUser(null);
-        }
+        localStorage.removeItem("cv-token");
+        localStorage.removeItem("cv-user");
+        setUser(null);
       })
       .finally(() => setLoading(false));
   }, []);
 
   const login = async (usernameOrEmail, password) => {
-    if (DEMO_MODE) {
-      const cleanName = usernameOrEmail.includes("@")
-        ? usernameOrEmail.split("@")[0]
-        : usernameOrEmail;
-      const fakeUser = {
-        id: "demo-usr-1",
-        name: cleanName || "Student",
-        email: usernameOrEmail.includes("@") ? usernameOrEmail : `${cleanName}@campusverse.edu`,
-        role: "admin",
-      };
-      localStorage.setItem("cv-token", "demo-token");
-      localStorage.setItem("cv-user", JSON.stringify(fakeUser));
-      setUser(fakeUser);
-      return fakeUser;
-    }
-
     const res = await authApi.login({ email: usernameOrEmail, password });
-    const { token, user: loggedInUser } = res.data;
+    const { token, user: loggedInUser } = res.data || {};
     if (token) localStorage.setItem("cv-token", token);
     if (loggedInUser) {
       localStorage.setItem("cv-user", JSON.stringify(loggedInUser));
@@ -63,16 +51,8 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (payload) => {
-    if (DEMO_MODE) {
-      const fakeUser = { id: "demo-usr-2", name: payload.name, email: payload.email, role: "student" };
-      localStorage.setItem("cv-token", "demo-token");
-      localStorage.setItem("cv-user", JSON.stringify(fakeUser));
-      setUser(fakeUser);
-      return fakeUser;
-    }
-
     const res = await authApi.register(payload);
-    const { token, user: newUser } = res.data;
+    const { token, user: newUser } = res.data || {};
     if (token) localStorage.setItem("cv-token", token);
     if (newUser) {
       localStorage.setItem("cv-user", JSON.stringify(newUser));
