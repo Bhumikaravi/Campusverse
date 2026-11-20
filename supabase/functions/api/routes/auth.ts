@@ -22,55 +22,107 @@ authRouter.post("/register", async (c) => {
   const resolvedName = (full_name || name || email.split("@")[0]).trim();
   const cleanEmail = email.trim().toLowerCase();
 
-  const { data, error } = await supabase.auth.signUp({
-    email: cleanEmail,
-    password,
-    options: {
-      data: {
+  let user: any = null;
+  let token = "";
+
+  // 1. Try to auto-confirm user with admin API so they don't get blocked by email verification
+  try {
+    const adminRes = await supabase.auth.admin.createUser({
+      email: cleanEmail,
+      password,
+      email_confirm: true,
+      user_metadata: {
         name: resolvedName,
         full_name: resolvedName,
         department,
-        course,
-        academicYear,
-        batch,
-        semester,
+        course: course || "Computer Science and Engineering",
+        academicYear: academicYear || "3rd Year",
+        batch: batch || "Batch 2023-2027",
+        semester: semester || 1,
         role: "student",
       },
-    },
-  });
+    });
 
-  if (error) {
-    return c.json({ detail: error.message }, 400);
+    if (!adminRes.error && adminRes.data?.user) {
+      user = adminRes.data.user;
+      // Generate active session token
+      const signin = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+      token = signin.data?.session?.access_token || "";
+    }
+  } catch (err) {
+    console.warn("Admin createUser notice, falling back to signUp:", err);
   }
 
-  const user = data.user;
-  const token = data.session?.access_token || "";
+  // 2. Fallback to standard signUp if admin API is restricted
+  if (!user) {
+    const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password,
+      options: {
+        data: {
+          name: resolvedName,
+          full_name: resolvedName,
+          department,
+          course: course || "Computer Science and Engineering",
+          academicYear: academicYear || "3rd Year",
+          batch: batch || "Batch 2023-2027",
+          semester: semester || 1,
+          role: "student",
+        },
+      },
+    });
 
-  // Query profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user?.id)
-    .single();
+    if (signUpErr) {
+      return c.json({ detail: signUpErr.message }, 400);
+    }
+
+    user = signUpData.user;
+    token = signUpData.session?.access_token || "";
+  }
+
+  // Ensure user profile in public.profiles table exists
+  if (user) {
+    await supabase.from("profiles").upsert(
+      {
+        id: user.id,
+        email: user.email,
+        name: resolvedName,
+        full_name: resolvedName,
+        role: "student",
+        department,
+        course,
+        academic_year: academicYear,
+        batch,
+        semester,
+      },
+      { onConflict: "id" }
+    ).catch(() => {});
+  }
 
   const userObj = {
     id: user?.id,
     email: user?.email,
-    name: profile?.name || resolvedName,
-    full_name: profile?.full_name || resolvedName,
-    role: profile?.role || "student",
-    department: profile?.department || department,
-    course: profile?.course || course,
-    academicYear: profile?.academic_year || academicYear,
-    batch: profile?.batch || batch,
-    semester: profile?.semester || semester,
+    name: resolvedName,
+    full_name: resolvedName,
+    role: "student",
+    department,
+    course,
+    academicYear,
+    batch,
+    semester,
   };
 
-  return c.json({
-    message: "User registered successfully",
-    token,
-    user: userObj,
-  }, 201);
+  return c.json(
+    {
+      message: "User registered successfully",
+      token,
+      user: userObj,
+    },
+    201
+  );
 });
 
 // POST /api/auth/login
@@ -87,6 +139,32 @@ authRouter.post("/login", async (c) => {
   });
 
   if (error) {
+    // If error is "Email not confirmed", try to auto-confirm user if admin key is available
+    if (error.message?.toLowerCase().includes("email not confirmed")) {
+      try {
+        const { data: usersData } = await supabase.auth.admin.listUsers();
+        const found = (usersData?.users || []).find((u: any) => u.email?.toLowerCase() === cleanEmail);
+        if (found) {
+          await supabase.auth.admin.updateUserById(found.id, { email_confirm: true });
+          // Retry login
+          const retry = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+          if (!retry.error) {
+            return c.json({
+              message: "Login successful",
+              token: retry.data.session?.access_token || "",
+              user: {
+                id: retry.data.user.id,
+                email: retry.data.user.email,
+                name: retry.data.user.user_metadata?.name || retry.data.user.email?.split("@")[0],
+                role: retry.data.user.user_metadata?.role || "student",
+              },
+            });
+          }
+        }
+      } catch (adminErr) {
+        console.warn("Auto-confirm fallback notice:", adminErr);
+      }
+    }
     return c.json({ detail: error.message || "Invalid email or password." }, 401);
   }
 
