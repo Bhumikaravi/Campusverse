@@ -1,0 +1,9 @@
+[project]
+id = "eeklurlqjcdcspmjlwlc"
+
+[api]
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+
+[functions.api]
+verify_jwt = false

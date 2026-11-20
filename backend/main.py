@@ -102,11 +102,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
-# CORS Middleware (Supports configured CLIENT_URL, local dev, Koyeb, Back4App, and Vercel domains)
+# CORS Middleware (Supports configured CLIENT_URL, local dev, Koyeb, Back4App, Vercel, and Render domains)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_origin_regex=r"https://.*(\.koyeb\.app|\.back4\.app|\.vercel\.app)",
+    allow_origin_regex=r"https://.*(\.koyeb\.app|\.back4\.app|\.vercel\.app|\.onrender\.com)",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],

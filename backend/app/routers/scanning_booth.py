@@ -386,7 +386,7 @@ async def approve_and_publish(
         "uploader": current_user["id"],
         "uploaderName": current_user.get("name", "Student"),
         "storageKey": record.get("storageKey"),
-        "storageProvider": "local",
+        "storageProvider": get_storage().name,
         "originalName": record.get("fileName"),
         "mimeType": record.get("mimeType"),
         "extension": record.get("extension"),

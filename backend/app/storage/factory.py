@@ -12,8 +12,23 @@ def get_storage() -> BaseStorage:
     if _storage_instance is not None:
         return _storage_instance
 
-    provider = settings.STORAGE_PROVIDER.lower()
-    if provider == "supabase":
+    provider = (settings.STORAGE_PROVIDER or "local").strip().lower()
+
+    if provider == "gridfs":
+        try:
+            from .gridfs_storage import GridFSStorage
+            _storage_instance = GridFSStorage()
+            logger.info("Using MongoDB GridFS storage provider (Atlas bucket: study_files)")
+            return _storage_instance
+        except Exception as e:
+            logger.warning(
+                "Could not initialize GridFSStorage (%s). "
+                "Ensure MONGODB_URI is set and the database is reachable. "
+                "Falling back to LocalStorage.",
+                e
+            )
+
+    elif provider == "supabase":
         try:
             from .supabase_storage import SupabaseStorage
             _storage_instance = SupabaseStorage()
@@ -31,6 +46,19 @@ def get_storage() -> BaseStorage:
         except Exception as e:
             logger.warning("Could not initialize CloudinaryStorage (%s). Falling back to LocalStorage.", e)
 
+    elif provider != "local":
+        logger.warning(
+            "Unknown STORAGE_PROVIDER='%s'. Valid options: gridfs, supabase, cloudinary, local. "
+            "Falling back to LocalStorage.",
+            provider
+        )
+
     _storage_instance = LocalStorage()
     logger.info("Using LocalStorage provider at '%s'", settings.LOCAL_STORAGE_DIR)
     return _storage_instance
+
+
+def reset_storage():
+    """Resets the storage singleton — used for testing or provider switches."""
+    global _storage_instance
+    _storage_instance = None

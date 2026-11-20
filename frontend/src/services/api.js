@@ -1,33 +1,39 @@
 import axios from "axios";
 
-// Configurable API Base URL
-// In production, fallback to relative "/api" so requests go to the same origin if no external URL is set
-let rawBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+// Configurable API Base URL pointing to Supabase Edge Functions
+const supabaseBase = import.meta.env.VITE_SUPABASE_URL
+  ? `${import.meta.env.VITE_SUPABASE_URL.replace(/\/+$/, "")}/functions/v1/api`
+  : null;
 
-if (!rawBase || rawBase.includes("localhost") || rawBase.includes("127.0.0.1")) {
-  if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-    // We are on a deployed public URL (e.g. Koyeb, Render, Back4App, Vercel) -> use relative /api
-    rawBase = "/api";
-  } else {
-    rawBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/+$/, "");
-  }
-}
+let rawBase =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  supabaseBase ||
+  "https://eeklurlqjcdcspmjlwlc.supabase.co/functions/v1/api";
 
 rawBase = String(rawBase).trim().replace(/\/+$/, "");
-if ((rawBase.startsWith("http://") || rawBase.startsWith("https://")) && !rawBase.endsWith("/api")) {
-  rawBase = `${rawBase}/api`;
-}
 
 const api = axios.create({
   baseURL: rawBase,
   headers: { "Content-Type": "application/json" },
-  withCredentials: true,
+  withCredentials: false,
 });
 
-// Attach the auth token to every request automatically
+// Attach the Supabase auth token and apikey to every request automatically
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("cv-token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  } else if (anonKey) {
+    config.headers.Authorization = `Bearer ${anonKey}`;
+  }
+
+  if (anonKey) {
+    config.headers["apikey"] = anonKey;
+  }
+
   return config;
 });
 
@@ -52,6 +58,8 @@ api.interceptors.response.use(
       friendlyMessage = "Cannot connect to server. Please check your internet connection or verify the backend server is running.";
     } else if (error.response?.data?.detail) {
       friendlyMessage = error.response.data.detail;
+    } else if (error.response?.data?.error) {
+      friendlyMessage = error.response.data.error;
     } else if (error.response?.status === 403) {
       friendlyMessage = "Access forbidden. You do not have permission to perform this action.";
     } else if (error.response?.status >= 500) {
