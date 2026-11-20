@@ -161,10 +161,10 @@ chatRouter.post("/sessions/:id/message", async (c) => {
   const supabase = c.get("supabase");
   const id = c.req.param("id");
   const body = await c.req.json();
-  const { question } = body;
+  const { question, materialIds: incomingMaterialIds } = body;
 
   let session: any = null;
-  let materialIds: string[] = [];
+  let materialIds: string[] = Array.isArray(incomingMaterialIds) ? incomingMaterialIds : [];
   let history: Array<{ role: string; content: string }> = [];
 
   if (isUuid(id)) {
@@ -175,7 +175,9 @@ chatRouter.post("/sessions/:id/message", async (c) => {
         .eq("id", id)
         .single();
       session = s;
-      materialIds = session?.material_ids || [];
+      if (materialIds.length === 0 && session?.material_ids) {
+        materialIds = session.material_ids;
+      }
 
       // Fetch recent history
       const { data: pastMsgs } = await supabase

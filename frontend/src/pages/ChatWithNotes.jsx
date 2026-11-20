@@ -207,7 +207,7 @@ export default function ChatWithNotes() {
     setSending(true);
 
     try {
-      const res = await chatApi.sendMessage(activeSessionId, q);
+      const res = await chatApi.sendMessage(activeSessionId, q, selectedMaterialIds);
       const aiData = res.data;
       const aiMsg = aiData?.message || {
         role: "assistant",

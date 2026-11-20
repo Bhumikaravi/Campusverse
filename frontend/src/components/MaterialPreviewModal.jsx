@@ -8,6 +8,8 @@ import {
   Maximize2,
   Minimize2,
   FileText,
+  ChevronLeft,
+  ChevronRight,
   AlertCircle,
   RotateCcw,
   User,
@@ -31,6 +33,8 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
   const [zoom, setZoom] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [viewerEngine, setViewerEngine] = useState("office"); // "office" | "google"
+  const [slideViewMode, setSlideViewMode] = useState("cards"); // "cards" | "embed"
+  const [activeSlide, setActiveSlide] = useState(0);
   const [activeTab, setActiveTab] = useState("preview"); // "preview" | "summary"
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -44,6 +48,8 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
     setError(null);
     setZoom(100);
     setViewerEngine("office");
+    setSlideViewMode("cards");
+    setActiveSlide(0);
     setActiveTab("preview");
     setIframeLoaded(false);
 
@@ -231,8 +237,41 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
         {/* Viewer Sub-toolbar (When in preview mode) */}
         {activeTab === "preview" && !loading && !error && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-white px-4 py-2 text-xs">
-            {/* Viewer Engine Switcher for Office Docs / Presentations */}
-            {isOfficeDoc ? (
+            {/* Viewer Switcher for Office Docs / Presentations */}
+            {isPresentation ? (
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500 font-medium hidden sm:inline">Presentation View:</span>
+                <div className="flex items-center bg-gray-100 p-0.5 rounded-lg">
+                  <button
+                    onClick={() => setSlideViewMode("cards")}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition ${
+                      slideViewMode === "cards"
+                        ? "bg-white text-brand-900 shadow-xs"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    title="View Authentic Slide Deck"
+                  >
+                    <Layers size={12} />
+                    Slide Deck
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSlideViewMode("embed");
+                      setIframeLoaded(false);
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition ${
+                      slideViewMode === "embed"
+                        ? "bg-white text-brand-900 shadow-xs"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    title="View with Office Online Embed"
+                  >
+                    <Monitor size={12} />
+                    Office Viewer
+                  </button>
+                </div>
+              </div>
+            ) : isOfficeDoc ? (
               <div className="flex items-center gap-2">
                 <span className="text-gray-500 font-medium hidden sm:inline">Viewer Engine:</span>
                 <div className="flex items-center bg-gray-100 p-0.5 rounded-lg">
@@ -409,8 +448,67 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
               {/* TAB 2: LIVE PREVIEW */}
               {activeTab === "preview" && (
                 <div className="flex-1 w-full h-full relative overflow-hidden flex flex-col">
-                  {/* PRESENTATION / OFFICE VIEWER (PPTX, PPT, DOCX, XLSX) */}
-                  {isOfficeDoc && (
+                  {/* PRESENTATION SLIDES (PPTX, PPT) - AUTHENTIC SLIDE DECK */}
+                  {isPresentation && slideViewMode === "cards" && (
+                    <div className="flex-1 w-full h-full flex flex-col bg-gray-100 overflow-hidden">
+                      {/* Slide Navigation Header */}
+                      <div className="flex items-center justify-between bg-white border-b border-gray-200 px-4 py-2">
+                        <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                          <Layers size={15} className="text-brand-600" />
+                          Slide {activeSlide + 1} of {preview?.slides?.length || 1}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setActiveSlide((s) => Math.max(0, s - 1))}
+                            disabled={activeSlide === 0}
+                            className="btn-secondary !py-1 !px-2.5 text-xs flex items-center gap-1 disabled:opacity-40"
+                          >
+                            <ChevronLeft size={14} /> Prev
+                          </button>
+                          <button
+                            onClick={() =>
+                              setActiveSlide((s) => Math.min((preview?.slides?.length || 1) - 1, s + 1))
+                            }
+                            disabled={activeSlide >= (preview?.slides?.length || 1) - 1}
+                            className="btn-secondary !py-1 !px-2.5 text-xs flex items-center gap-1 disabled:opacity-40"
+                          >
+                            Next <ChevronRight size={14} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Slide Card */}
+                      <div className="flex-1 w-full overflow-auto flex items-center justify-center p-4 sm:p-6 bg-gray-200/80">
+                        <div className="aspect-[16/9] w-full max-w-3xl bg-white rounded-2xl shadow-xl border border-gray-300 p-6 sm:p-8 flex flex-col justify-between overflow-y-auto">
+                          <div>
+                            <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-4">
+                              <span className="text-xs font-bold text-brand-600 uppercase tracking-wide">
+                                SLIDE {activeSlide + 1}
+                              </span>
+                              <span className="text-[11px] text-gray-400">
+                                {material?.title}
+                              </span>
+                            </div>
+                            {preview?.slides?.[activeSlide]?.heading && (
+                              <h3 className="text-lg font-bold text-gray-900 mb-3">
+                                {preview.slides[activeSlide].heading}
+                              </h3>
+                            )}
+                            <div className="whitespace-pre-wrap font-sans text-sm sm:text-base leading-relaxed text-gray-800">
+                              {preview?.slides?.[activeSlide]?.text || "No text available on this slide."}
+                            </div>
+                          </div>
+                          <div className="pt-4 border-t border-gray-100 flex justify-between text-xs text-gray-400 mt-6">
+                            <span>{material?.subject || material?.department}</span>
+                            <span>CampusVerse Academic Slides</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* PRESENTATION EMBED OR OTHER OFFICE DOCS (DOCX, XLSX) */}
+                  {((isPresentation && slideViewMode === "embed") || (!isPresentation && isOfficeDoc)) && (
                     <div className="flex-1 w-full h-full relative flex flex-col bg-gray-200">
                       {!iframeLoaded && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100/90 z-10">
@@ -445,6 +543,17 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
                           >
                             Switch to {viewerEngine === "office" ? "Google Viewer" : "Office Viewer"}
                           </button>
+                          {isPresentation && (
+                            <>
+                              <span>•</span>
+                              <button
+                                onClick={() => setSlideViewMode("cards")}
+                                className="text-brand-700 hover:text-brand-900 font-bold hover:underline"
+                              >
+                                Switch to Slide Deck
+                              </button>
+                            </>
+                          )}
                           <span>•</span>
                           <button
                             onClick={handleDownload}

@@ -672,16 +672,28 @@ export const chatApi = {
       })
     ),
 
-  sendMessage: (sessionId, question) =>
+  sendMessage: (sessionId, question, materialIds = []) =>
     withFallback(
-      () => api.post(`/chat/sessions/${sessionId}/message`, { question }, { timeout: 45000 }),
-      () => ({
-        role: "assistant",
-        content: `### Concept Analysis: ${question}\n\nBased on your selected academic materials:\n\n1. **Core Concept**\n   - **${question}** represents an essential topic within your syllabus.\n   - Review the foundational definitions and main architectural diagrams in the notes.\n\n2. **Key Theoretical Principles**\n   - Study the standard formulations and model exam solutions provided by course instructors.\n   - Ensure you practice numerical applications and definition recall.\n\n*(Grounded in your study notes)*`,
-        answer: `### Concept Analysis: ${question}\n\nBased on your selected academic materials:\n\n1. **Core Concept**\n   - **${question}** represents an essential topic within your syllabus.\n   - Review the foundational definitions and main architectural diagrams in the notes.\n\n2. **Key Theoretical Principles**\n   - Study the standard formulations and model exam solutions provided by course instructors.\n   - Ensure you practice numerical applications and definition recall.\n\n*(Grounded in your study notes)*`,
-        sources: [],
-        createdAt: new Date().toISOString(),
-      })
+      () => api.post(`/chat/sessions/${sessionId}/message`, { question, materialIds }, { timeout: 45000 }),
+      () => {
+        const qLow = (question || "").toLowerCase().trim();
+        if (/^(hi|hello|hey|greetings)[\s!.]*$/i.test(qLow)) {
+          return {
+            role: "assistant",
+            content: "Hello! I'm CampusVerse's AI study assistant. Ask me any question grounded in your uploaded study materials (such as definitions, architectures, key concepts, formulas, or exam review topics)!",
+            answer: "Hello! I'm CampusVerse's AI study assistant. Ask me any question grounded in your uploaded study materials (such as definitions, architectures, key concepts, formulas, or exam review topics)!",
+            sources: [],
+            createdAt: new Date().toISOString(),
+          };
+        }
+        return {
+          role: "assistant",
+          content: "This information is not available in your uploaded study materials. Please upload the relevant study material.",
+          answer: "This information is not available in your uploaded study materials. Please upload the relevant study material.",
+          sources: [],
+          createdAt: new Date().toISOString(),
+        };
+      }
     ),
 
   deleteSession: (sessionId) =>

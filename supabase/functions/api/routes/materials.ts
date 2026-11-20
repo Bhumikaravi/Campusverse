@@ -5,6 +5,8 @@
 import { Hono } from "npm:hono";
 import { reviewDocumentWithAI, generateDocumentSummary, generateEmbedding } from "../services/gemini.ts";
 import { getBearerToken } from "./auth.ts";
+import { extractDocumentContent } from "../services/textExtractor.ts";
+import { validateAcademicDocument } from "../services/guardrails.ts";
 
 export const materialsRouter = new Hono();
 
@@ -273,8 +275,27 @@ materialsRouter.get("/:id/preview", async (c) => {
   const textContent = item.summary || item.description || "Academic study material.";
   const htmlContent = `<div class="p-6 bg-white rounded-xl shadow-xs"><h2 class="text-xl font-bold text-gray-900 mb-2">${item.title}</h2><div class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-100 text-brand-800 mb-4">${item.academic_category || item.department || "Academic Notes"}</div><p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">${textContent}</p></div>`;
 
+  // Fetch real extracted slides / pages from document_chunks
+  const { data: chunkRecords } = await supabase
+    .from("document_chunks")
+    .select("page_number, heading, text")
+    .eq("material_id", item.id)
+    .order("page_number", { ascending: true });
+
+  const realSlides = (chunkRecords && chunkRecords.length > 0)
+    ? chunkRecords.map((c: any) => ({
+        index: c.page_number,
+        heading: c.heading || `Slide ${c.page_number}`,
+        text: c.text,
+      }))
+    : [{ index: 1, heading: item.title, text: `${item.title}\n\n${textContent}` }];
+
   return c.json({
-    material: serializeMaterial(item),
+    material: {
+      ...serializeMaterial(item),
+      totalPageCount: realSlides.length,
+      processedPageCount: realSlides.length,
+    },
     preview: {
       kind,
       fileUrl: activeFileUrl,
@@ -282,7 +303,8 @@ materialsRouter.get("/:id/preview", async (c) => {
       extension: ext,
       mimeType: item.mime_type || getMimeType(ext),
       html: htmlContent,
-      slides: [{ index: 1, text: `${item.title}\n\n${textContent}` }],
+      slides: realSlides,
+      totalSlides: realSlides.length,
       summary: textContent,
     },
   });
@@ -365,8 +387,23 @@ materialsRouter.post("/", async (c) => {
 
   const fileUrl = signedData?.signedUrl || `/sample_files/${fileName}`;
 
-  // 2. Perform AI Verification & Summary Generation
-  const textBuffer = userSummary || `${title} - University syllabus study material covering ${subject} for semester ${semester}.`;
+  // 2. Multi-Format Text Extraction & Strict Academic Category Validation
+  const uint8Bytes = new Uint8Array(fileBytes);
+  const extraction = await extractDocumentContent(uint8Bytes, fileName);
+
+  const academicCheck = validateAcademicDocument(extraction.fullText, fileName);
+  if (!academicCheck.isAcademic) {
+    // If not academic, delete from storage and reject
+    if (storagePath) {
+      await supabase.storage.from("study-materials").remove([storagePath]).catch(() => {});
+    }
+    return c.json({
+      detail: `Upload rejected: Only legitimate academic study materials are accepted. ${academicCheck.reason}`
+    }, 400);
+  }
+
+  // 3. Perform AI Verification & Summary Generation
+  const textBuffer = extraction.fullText.slice(0, 3000) || userSummary || `${title} - University syllabus study material covering ${subject} for semester ${semester}.`;
   const { status: aiStatus, aiReview } = await reviewDocumentWithAI(
     title,
     userSummary,
@@ -379,7 +416,7 @@ materialsRouter.post("/", async (c) => {
   const { summary: generatedSummary, wordCount } = await generateDocumentSummary(title, textBuffer);
   const finalSummary = userSummary || generatedSummary;
 
-  // 3. Save to Supabase PostgreSQL
+  // 4. Save to Supabase PostgreSQL
   const docId = `doc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   const { data: record, error: dbError } = await supabase
     .from("study_materials")
@@ -389,6 +426,9 @@ materialsRouter.post("/", async (c) => {
       description: finalSummary,
       summary: finalSummary,
       summary_word_count: wordCount,
+      total_page_count: extraction.totalPages,
+      processed_page_count: extraction.totalPages,
+      page_count: extraction.totalPages,
       uploader_id: userId,
       uploader_name: userName,
       department,
@@ -415,16 +455,22 @@ materialsRouter.post("/", async (c) => {
     return c.json({ detail: dbError.message }, 500);
   }
 
-  // 4. Index document chunks for RAG
-  const embedding = await generateEmbedding(finalSummary);
-  await supabase.from("document_chunks").insert({
+  // 5. Index every extracted slide / page chunk into document_chunks for Hybrid RAG
+  const chunkRows = extraction.pages.map((p, idx) => ({
     material_id: record.id,
-    title,
-    page_number: 1,
-    chunk_index: 0,
-    text: finalSummary,
-    embedding,
-  }).catch(() => {});
+    title: p.heading || `${title} - Page ${p.pageNumber}`,
+    heading: p.heading || `Page ${p.pageNumber}`,
+    page_number: p.pageNumber,
+    chunk_index: idx,
+    text: p.text,
+    status: "ACTIVE",
+  }));
+
+  if (chunkRows.length > 0) {
+    await supabase.from("document_chunks").insert(chunkRows).catch((err: any) => {
+      console.warn("Failed to insert chunk rows:", err);
+    });
+  }
 
   return c.json({
     message: "Material uploaded! AI verification and automated summary saved.",
@@ -492,6 +538,68 @@ materialsRouter.get("/:id/download", async (c) => {
 
   // Direct 302 Redirect: triggers browser file download in exact original format
   return c.redirect(downloadUrl, 302);
+});
+
+// POST /api/materials/:id/reindex (Extracts and reindexes all chunks from storage)
+materialsRouter.post("/:id/reindex", async (c) => {
+  const supabase = c.get("supabase");
+  const id = c.req.param("id");
+
+  const { data: item } = await supabase
+    .from("study_materials")
+    .select("*")
+    .or(`id.eq.${id},document_id.eq.${id}`)
+    .single();
+
+  if (!item || !item.storage_key) {
+    return c.json({ detail: "Material or storage key not found" }, 404);
+  }
+
+  const { data: fileData, error: downloadError } = await supabase.storage
+    .from("study-materials")
+    .download(item.storage_key);
+
+  if (downloadError || !fileData) {
+    return c.json({ detail: `Download error: ${downloadError?.message}` }, 500);
+  }
+
+  const fileBytes = new Uint8Array(await fileData.arrayBuffer());
+  const extraction = await extractDocumentContent(fileBytes, item.original_name || "study_material.pdf");
+
+  // Delete previous chunks
+  await supabase.from("document_chunks").delete().eq("material_id", item.id);
+
+  // Insert extracted pages
+  const chunkRows = extraction.pages.map((p, idx) => ({
+    material_id: item.id,
+    title: p.heading || `${item.title} - Page ${p.pageNumber}`,
+    heading: p.heading || `Page ${p.pageNumber}`,
+    page_number: p.pageNumber,
+    chunk_index: idx,
+    text: p.text,
+    status: "ACTIVE",
+  }));
+
+  if (chunkRows.length > 0) {
+    await supabase.from("document_chunks").insert(chunkRows);
+  }
+
+  // Update study_materials page count
+  await supabase
+    .from("study_materials")
+    .update({
+      page_count: extraction.totalPages,
+      total_page_count: extraction.totalPages,
+      processed_page_count: extraction.totalPages,
+    })
+    .eq("id", item.id);
+
+  return c.json({
+    success: true,
+    materialId: item.id,
+    pagesIndexed: extraction.totalPages,
+    totalWords: extraction.totalWords,
+  });
 });
 
 // DELETE /api/materials/:id
