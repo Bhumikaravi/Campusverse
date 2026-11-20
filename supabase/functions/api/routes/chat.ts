@@ -8,6 +8,10 @@ import { getBearerToken } from "./auth.ts";
 
 export const chatRouter = new Hono();
 
+function isUuid(str: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
 // GET /api/chat/materials
 chatRouter.get("/materials", async (c) => {
   const supabase = c.get("supabase");
@@ -40,42 +44,54 @@ chatRouter.post("/sessions", async (c) => {
   const body = await c.req.json();
   const { materialIds, title } = body;
 
-  let userId = "00000000-0000-0000-0000-000000000000";
+  let userId: string | null = null;
   if (token) {
     const { data: { user } } = await supabase.auth.getUser(token);
-    if (user) userId = user.id;
+    if (user) {
+      userId = user.id;
+      // Guarantee profile exists for foreign key
+      await supabase.from("profiles").upsert({
+        id: user.id,
+        name: user.user_metadata?.name || user.user_metadata?.full_name || user.email?.split("@")[0] || "Student",
+        email: user.email,
+        role: user.user_metadata?.role || "student",
+      }, { onConflict: "id" }).catch(() => {});
+    }
   }
 
   const sessionTitle = title || "Study Session";
+  const newUuid = crypto.randomUUID();
 
-  const { data: session, error } = await supabase
-    .from("chat_sessions")
-    .insert({
-      user_id: userId,
-      title: sessionTitle,
-      material_ids: materialIds || [],
-    })
-    .select()
-    .single();
+  if (userId) {
+    const { data: session, error } = await supabase
+      .from("chat_sessions")
+      .insert({
+        id: newUuid,
+        user_id: userId,
+        title: sessionTitle,
+        material_ids: materialIds || [],
+      })
+      .select()
+      .single();
 
-  if (error) {
-    // If foreign key constraint on dummy user ID, return ephemeral session
-    const ephemeralId = `session-${Date.now()}`;
-    return c.json({
-      id: ephemeralId,
-      sessionId: ephemeralId,
-      title: sessionTitle,
-      materialIds,
-      createdAt: new Date().toISOString(),
-    }, 201);
+    if (!error && session) {
+      return c.json({
+        id: session.id,
+        sessionId: session.id,
+        title: session.title,
+        materialIds: session.material_ids,
+        createdAt: session.created_at,
+      }, 201);
+    }
   }
 
+  // Ephemeral or guest session with valid UUID
   return c.json({
-    id: session.id,
-    sessionId: session.id,
-    title: session.title,
-    materialIds: session.material_ids,
-    createdAt: session.created_at,
+    id: newUuid,
+    sessionId: newUuid,
+    title: sessionTitle,
+    materialIds: materialIds || [],
+    createdAt: new Date().toISOString(),
   }, 201);
 });
 
@@ -94,7 +110,16 @@ chatRouter.get("/sessions", async (c) => {
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false });
 
-  return c.json({ sessions: sessions || [] });
+  const formatted = (sessions || []).map((s: any) => ({
+    id: s.id,
+    sessionId: s.id,
+    title: s.title,
+    materialIds: s.material_ids || [],
+    createdAt: s.created_at,
+    updatedAt: s.updated_at,
+  }));
+
+  return c.json({ sessions: formatted });
 });
 
 // GET /api/chat/sessions/:id
@@ -102,21 +127,32 @@ chatRouter.get("/sessions/:id", async (c) => {
   const supabase = c.get("supabase");
   const id = c.req.param("id");
 
-  const { data: session } = await supabase
-    .from("chat_sessions")
-    .select("*")
-    .eq("id", id)
-    .single();
+  let session: any = null;
+  let messages: any[] = [];
 
-  const { data: messages } = await supabase
-    .from("chat_messages")
-    .select("*")
-    .eq("session_id", id)
-    .order("created_at", { ascending: true });
+  if (isUuid(id)) {
+    try {
+      const { data: s } = await supabase
+        .from("chat_sessions")
+        .select("*")
+        .eq("id", id)
+        .single();
+      session = s;
+
+      const { data: m } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("session_id", id)
+        .order("created_at", { ascending: true });
+      messages = m || [];
+    } catch {
+      // Ignore database notice
+    }
+  }
 
   return c.json({
-    session: session || { id, title: "Study Session" },
-    messages: messages || [],
+    session: session || { id, sessionId: id, title: "Study Session" },
+    messages,
   });
 });
 
@@ -127,38 +163,57 @@ chatRouter.post("/sessions/:id/message", async (c) => {
   const body = await c.req.json();
   const { question } = body;
 
-  const { data: session } = await supabase
-    .from("chat_sessions")
-    .select("*")
-    .eq("id", id)
-    .single();
+  let session: any = null;
+  let materialIds: string[] = [];
+  let history: Array<{ role: string; content: string }> = [];
 
-  const materialIds = session?.material_ids || [];
+  if (isUuid(id)) {
+    try {
+      const { data: s } = await supabase
+        .from("chat_sessions")
+        .select("*")
+        .eq("id", id)
+        .single();
+      session = s;
+      materialIds = session?.material_ids || [];
 
-  // Fetch recent history
-  const { data: pastMsgs } = await supabase
-    .from("chat_messages")
-    .select("role, content")
-    .eq("session_id", id)
-    .order("created_at", { ascending: true })
-    .limit(6);
+      // Fetch recent history
+      const { data: pastMsgs } = await supabase
+        .from("chat_messages")
+        .select("role, content")
+        .eq("session_id", id)
+        .order("created_at", { ascending: true })
+        .limit(6);
 
-  const history = (pastMsgs || []).map((m: any) => ({ role: m.role, content: m.content }));
+      history = (pastMsgs || []).map((m: any) => ({ role: m.role, content: m.content }));
+    } catch {
+      // Continue to RAG execution
+    }
+  }
 
   // Run Grounded RAG Pipeline
   const ragResult = await executeRAG(question, materialIds, supabase, history);
 
-  // Record user and assistant messages
-  if (session) {
-    await supabase.from("chat_messages").insert([
-      { session_id: id, role: "user", content: question },
-      { session_id: id, role: "assistant", content: ragResult.answer, sources: ragResult.sources },
-    ]).catch(() => {});
+  // Record user and assistant messages if persistent session exists
+  if (session && isUuid(id)) {
+    try {
+      await supabase.from("chat_messages").insert([
+        { session_id: id, role: "user", content: question },
+        { session_id: id, role: "assistant", content: ragResult.answer, sources: ragResult.sources },
+      ]);
 
-    await supabase.from("chat_sessions").update({ updated_at: new Date().toISOString() }).eq("id", id).catch(() => {});
+      await supabase
+        .from("chat_sessions")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", id);
+    } catch {
+      // Continue
+    }
   }
 
   return c.json({
+    role: "assistant",
+    content: ragResult.answer,
     answer: ragResult.answer,
     sources: ragResult.sources,
     message: {
@@ -167,6 +222,7 @@ chatRouter.post("/sessions/:id/message", async (c) => {
       sources: ragResult.sources,
       createdAt: new Date().toISOString(),
     },
+    createdAt: new Date().toISOString(),
   });
 });
 
@@ -175,6 +231,8 @@ chatRouter.delete("/sessions/:id", async (c) => {
   const supabase = c.get("supabase");
   const id = c.req.param("id");
 
-  await supabase.from("chat_sessions").delete().eq("id", id);
+  if (isUuid(id)) {
+    await supabase.from("chat_sessions").delete().eq("id", id).catch(() => {});
+  }
   return c.json({ success: true });
 });

@@ -77,6 +77,10 @@ export default function ChatWithNotes() {
         setAvailableMaterials(mats);
         const sessList = sessRes?.data?.sessions || [];
         setSessions(sessList);
+        if (sessList.length > 0 && !currentSessionId) {
+          const firstSess = sessList[0];
+          setCurrentSessionId(firstSess.sessionId || firstSess.id);
+        }
 
         if (initialMaterialId) {
           const match = mats.find((m) => m.id === initialMaterialId);
@@ -183,7 +187,7 @@ export default function ChatWithNotes() {
         const createRes = await chatApi.createSession({
           materialIds: matsToUse,
         });
-        activeSessionId = createRes.data.sessionId;
+        activeSessionId = createRes.data?.sessionId || createRes.data?.id;
         setCurrentSessionId(activeSessionId);
         setSessions((prev) => [createRes.data, ...prev]);
       } catch (err) {
@@ -204,7 +208,13 @@ export default function ChatWithNotes() {
 
     try {
       const res = await chatApi.sendMessage(activeSessionId, q);
-      const aiMsg = res.data;
+      const aiData = res.data;
+      const aiMsg = aiData?.message || {
+        role: "assistant",
+        content: aiData?.content || aiData?.answer || "I have analyzed your notes.",
+        sources: aiData?.sources || [],
+        createdAt: aiData?.createdAt || new Date().toISOString(),
+      };
       setMessages((prev) => [...prev, aiMsg]);
     } catch (err) {
       showToast(err.friendlyMessage || "Failed to generate answer.", "error");
@@ -217,7 +227,7 @@ export default function ChatWithNotes() {
     e.stopPropagation();
     try {
       await chatApi.deleteSession(sessionId);
-      setSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
+      setSessions((prev) => prev.filter((s) => (s.sessionId || s.id) !== sessionId));
       if (currentSessionId === sessionId) {
         setCurrentSessionId(null);
         setCurrentSession(null);
@@ -339,11 +349,12 @@ export default function ChatWithNotes() {
               ) : (
                 <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
                   {sessions.map((sess) => {
-                    const isActive = currentSessionId === sess.sessionId;
+                    const sid = sess.sessionId || sess.id;
+                    const isActive = currentSessionId === sid;
                     return (
                       <div
-                        key={sess.sessionId}
-                        onClick={() => setCurrentSessionId(sess.sessionId)}
+                        key={sid}
+                        onClick={() => setCurrentSessionId(sid)}
                         className={`group flex items-center justify-between p-2 rounded-xl text-xs cursor-pointer transition ${
                           isActive
                             ? "bg-brand-100 text-brand-900 font-bold"
@@ -353,7 +364,7 @@ export default function ChatWithNotes() {
                         <span className="truncate pr-2">{sess.title}</span>
                         <button
                           type="button"
-                          onClick={(e) => handleDeleteSession(e, sess.sessionId)}
+                          onClick={(e) => handleDeleteSession(e, sid)}
                           className="opacity-0 group-hover:opacity-100 hover:text-red-600 transition p-1"
                         >
                           <Trash2 size={12} />

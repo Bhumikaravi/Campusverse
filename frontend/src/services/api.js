@@ -15,7 +15,7 @@ rawBase = String(rawBase).trim().replace(/\/+$/, "");
 
 const api = axios.create({
   baseURL: rawBase,
-  timeout: 6000, // 6-second timeout so page never hangs
+  timeout: 30000, // 30-second timeout for AI completions, RAG retrieval & file uploads
   headers: { "Content-Type": "application/json" },
   withCredentials: false,
 });
