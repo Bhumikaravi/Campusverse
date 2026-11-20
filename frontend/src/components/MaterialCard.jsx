@@ -61,7 +61,7 @@ export default function MaterialCard({ material, onToggleBookmark }) {
   const unit = isSlideType ? (totalPages === 1 ? "slide" : "slides") : (totalPages === 1 ? "page" : "pages");
   const pageLabel = processedPages === totalPages ? `${totalPages} ${unit}` : `${processedPages}/${totalPages} ${unit}`;
 
-  const handleDownload = (e) => {
+  const handleDownload = async (e) => {
     e.preventDefault();
     e.stopPropagation();
     if (!resolvedId) {
@@ -69,17 +69,29 @@ export default function MaterialCard({ material, onToggleBookmark }) {
       return;
     }
     try {
-      const token = localStorage.getItem("cv-token");
-      const downloadUrl = `${api.defaults.baseURL}/materials/${resolvedId}/download${token ? `?token=${encodeURIComponent(token)}` : ""}`;
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.setAttribute("download", material.originalName || `${material.title || "study-material"}.${(material.fileType || "pdf").toLowerCase()}`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showToast("Download started", "success");
+      showToast("Starting download...", "info");
+      const res = await api.get(`/materials/${resolvedId}/download?json=true`);
+      const downloadUrl = res.data?.url;
+      const downloadName =
+        res.data?.fileName ||
+        material.originalName ||
+        `${material.title || "study-material"}.${(material.fileType || "pdf").toLowerCase()}`;
+
+      if (downloadUrl) {
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.setAttribute("download", downloadName);
+        link.setAttribute("target", "_blank");
+        link.setAttribute("rel", "noopener noreferrer");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast(`Downloaded ${downloadName}`, "success");
+      } else {
+        window.location.href = `${api.defaults.baseURL}/materials/${resolvedId}/download`;
+      }
     } catch {
-      showToast("Download failed. Try again.", "error");
+      window.location.href = `${api.defaults.baseURL}/materials/${resolvedId}/download`;
     }
   };
 

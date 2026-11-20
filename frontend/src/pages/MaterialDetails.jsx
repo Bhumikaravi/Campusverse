@@ -98,24 +98,36 @@ export default function MaterialDetails() {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     const validId = material?.id || material?._id || id;
     if (!validId || validId === "undefined") {
       showToast("Download unavailable for this material.", "error");
       return;
     }
     try {
-      const token = localStorage.getItem("cv-token");
-      const downloadUrl = `${api.defaults.baseURL}/materials/${validId}/download${token ? `?token=${encodeURIComponent(token)}` : ""}`;
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.setAttribute("download", material?.originalName || `${material?.title || "study-material"}.${(material?.fileType || "pdf").toLowerCase()}`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showToast("Download started", "success");
+      showToast("Starting download...", "info");
+      const res = await api.get(`/materials/${validId}/download?json=true`);
+      const downloadUrl = res.data?.url;
+      const downloadName =
+        res.data?.fileName ||
+        material?.originalName ||
+        `${material?.title || "study-material"}.${(material?.fileType || "pdf").toLowerCase()}`;
+
+      if (downloadUrl) {
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.setAttribute("download", downloadName);
+        link.setAttribute("target", "_blank");
+        link.setAttribute("rel", "noopener noreferrer");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast(`Downloaded ${downloadName}`, "success");
+      } else {
+        window.location.href = `${api.defaults.baseURL}/materials/${validId}/download`;
+      }
     } catch {
-      showToast("Could not start the download. Try again.", "error");
+      window.location.href = `${api.defaults.baseURL}/materials/${validId}/download`;
     }
   };
 

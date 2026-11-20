@@ -9,8 +9,31 @@ import { getBearerToken } from "./auth.ts";
 export const materialsRouter = new Hono();
 
 function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getMimeType(ext: string): string {
+  const clean = ext.toLowerCase().replace(".", "");
+  switch (clean) {
+    case "pdf": return "application/pdf";
+    case "pptx": return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+    case "ppt": return "application/vnd.ms-powerpoint";
+    case "docx": return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    case "doc": return "application/msword";
+    case "xlsx": return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    case "xls": return "application/vnd.ms-excel";
+    case "png": return "image/png";
+    case "jpg":
+    case "jpeg": return "image/jpeg";
+    case "webp": return "image/webp";
+    case "gif": return "image/gif";
+    case "svg": return "image/svg+xml";
+    case "txt": return "text/plain";
+    case "md": return "text/markdown";
+    default: return "application/octet-stream";
+  }
 }
 
 function serializeMaterial(m: any): any {
@@ -226,13 +249,27 @@ materialsRouter.get("/:id/preview", async (c) => {
 
   if (!item) return c.json({ detail: "Material not found" }, 404);
 
+  // Generate fresh signed URL valid for 2 hours (7200 seconds)
+  let activeFileUrl = item.file_url;
+  if (item.storage_key) {
+    const { data: signed } = await supabase.storage
+      .from("study-materials")
+      .createSignedUrl(item.storage_key, 7200);
+    if (signed?.signedUrl) {
+      activeFileUrl = signed.signedUrl;
+    }
+  }
+
   const ext = (item.extension || "pdf").toLowerCase().replace(".", "");
   let kind = "unsupported";
   if (ext === "pdf") kind = "pdf";
-  else if (["png", "jpg", "jpeg", "webp"].includes(ext)) kind = "image";
-  else if (["docx", "doc", "txt", "md"].includes(ext)) kind = "html";
-  else if (["pptx", "ppt"].includes(ext)) kind = "slides";
+  else if (["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(ext)) kind = "image";
+  else if (["pptx", "ppt", "odp"].includes(ext)) kind = "slides";
+  else if (["docx", "doc", "rtf", "odt"].includes(ext)) kind = "document";
+  else if (["xlsx", "xls", "csv"].includes(ext)) kind = "spreadsheet";
+  else if (["txt", "md", "json", "js", "ts", "py", "java", "c", "cpp", "sql"].includes(ext)) kind = "text";
 
+  const downloadName = item.original_name || `${(item.title || "material").replace(/[^a-zA-Z0-9._-]/g, "_")}.${ext}`;
   const textContent = item.summary || item.description || "Academic study material.";
   const htmlContent = `<div class="p-6 bg-white rounded-xl shadow-xs"><h2 class="text-xl font-bold text-gray-900 mb-2">${item.title}</h2><div class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-100 text-brand-800 mb-4">${item.academic_category || item.department || "Academic Notes"}</div><p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">${textContent}</p></div>`;
 
@@ -240,11 +277,41 @@ materialsRouter.get("/:id/preview", async (c) => {
     material: serializeMaterial(item),
     preview: {
       kind,
-      fileUrl: item.file_url,
+      fileUrl: activeFileUrl,
+      fileName: downloadName,
+      extension: ext,
+      mimeType: item.mime_type || getMimeType(ext),
       html: htmlContent,
       slides: [{ index: 1, text: `${item.title}\n\n${textContent}` }],
+      summary: textContent,
     },
   });
+});
+
+// GET /api/materials/:id/file (Direct stream or redirect to raw file)
+materialsRouter.get("/:id/file", async (c) => {
+  const supabase = c.get("supabase");
+  const id = c.req.param("id");
+
+  const { data: item } = await supabase
+    .from("study_materials")
+    .select("*")
+    .or(`id.eq.${id},document_id.eq.${id}`)
+    .single();
+
+  if (!item) return c.json({ detail: "Material not found" }, 404);
+
+  let fileUrl = item.file_url;
+  if (item.storage_key) {
+    const { data: signed } = await supabase.storage
+      .from("study-materials")
+      .createSignedUrl(item.storage_key, 7200);
+    if (signed?.signedUrl) {
+      fileUrl = signed.signedUrl;
+    }
+  }
+
+  return c.redirect(fileUrl, 302);
 });
 
 // POST /api/materials (Upload with Supabase Storage, AI Verification, and Chunking)
@@ -278,11 +345,12 @@ materialsRouter.post("/", async (c) => {
 
   // 1. Upload to Supabase Storage 'study-materials'
   const storagePath = `materials/${userId || "guest"}/${Date.now()}_${fileName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+  const fileMime = file?.type || getMimeType(fileExt);
   
   const { error: storageError } = await supabase.storage
     .from("study-materials")
     .upload(storagePath, fileBytes, {
-      contentType: file?.type || "application/pdf",
+      contentType: fileMime,
       upsert: true,
     });
 
@@ -333,7 +401,7 @@ materialsRouter.post("/", async (c) => {
       storage_key: storagePath,
       storage_provider: "supabase",
       original_name: fileName,
-      mime_type: file?.type || "application/pdf",
+      mime_type: fileMime,
       extension: fileExt,
       size: fileSize,
       file_hash: `hash-${Date.now()}`,
@@ -374,7 +442,7 @@ materialsRouter.post("/ai-summary", async (c) => {
   return c.json({ summary, wordCount, processingStatus: "Summary ready" });
 });
 
-// GET /api/materials/:id/download (Returns 60s short-lived signed URL)
+// GET /api/materials/:id/download (Downloads file in original format or returns signed download URL)
 materialsRouter.get("/:id/download", async (c) => {
   const supabase = c.get("supabase");
   const id = c.req.param("id");
@@ -387,18 +455,43 @@ materialsRouter.get("/:id/download", async (c) => {
 
   if (!item) return c.json({ detail: "Material not found" }, 404);
 
-  // Increment downloads
-  await supabase
-    .from("study_materials")
-    .update({ downloads: (item.downloads || 0) + 1 })
-    .eq("id", item.id);
+  // Increment downloads counter
+  try {
+    await supabase
+      .from("study_materials")
+      .update({ downloads: (item.downloads || 0) + 1 })
+      .eq("id", item.id);
+  } catch (err) {
+    console.warn("Failed to increment download count:", err);
+  }
 
-  const { data: signed } = await supabase.storage
-    .from("study-materials")
-    .createSignedUrl(item.storage_key, 60);
+  const ext = item.extension ? (item.extension.startsWith(".") ? item.extension : `.${item.extension}`) : ".pdf";
+  const downloadName = item.original_name || `${(item.title || "study_material").replace(/[^a-zA-Z0-9._-]/g, "_")}${ext}`;
 
-  const downloadUrl = signed?.signedUrl || item.file_url;
-  return c.json({ url: downloadUrl });
+  let downloadUrl = item.file_url;
+  if (item.storage_key) {
+    const { data: signed } = await supabase.storage
+      .from("study-materials")
+      .createSignedUrl(item.storage_key, 300, {
+        download: downloadName,
+      });
+    if (signed?.signedUrl) {
+      downloadUrl = signed.signedUrl;
+    }
+  }
+
+  // If client explicitly asks for JSON (?json=true)
+  if (c.req.query("json") === "true") {
+    return c.json({
+      url: downloadUrl,
+      fileName: downloadName,
+      extension: ext,
+      mimeType: item.mime_type || getMimeType(ext),
+    });
+  }
+
+  // Direct 302 Redirect: triggers browser file download in exact original format
+  return c.redirect(downloadUrl, 302);
 });
 
 // DELETE /api/materials/:id

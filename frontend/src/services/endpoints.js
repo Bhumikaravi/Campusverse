@@ -177,6 +177,8 @@ export const materialsApi = {
       }
     ),
 
+  download: (id) => api.get(`/materials/${id}/download?json=true`),
+
   upload: (formData) =>
     withFallback(
       () =>
