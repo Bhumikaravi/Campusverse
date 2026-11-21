@@ -103,8 +103,6 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose, data]);
 
-  if (!open) return null;
-
   const material = data?.material;
   const preview = data?.preview;
 
@@ -179,6 +177,8 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
       isCancelled = true;
     };
   }, [open, isDoc, activeTab, fileUrl]);
+
+  if (!open) return null;
 
   const handleDownload = () => {
     if (downloading) return;
