@@ -37,7 +37,6 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
   const [zoom, setZoom] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
-  const [activeTab, setActiveTab] = useState("preview"); // "preview" | "summary"
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [presentationEngine, setPresentationEngine] = useState("deck"); // "deck" | "office" | "google"
@@ -46,10 +45,6 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
   const docxContainerRef = useRef(null);
   const [docxRendering, setDocxRendering] = useState(false);
   const [docxError, setDocxError] = useState(null);
-
-  // On-demand summary generation
-  const [generatingSummary, setGeneratingSummary] = useState(false);
-  const [summaryData, setSummaryData] = useState(null);
 
   const { showToast } = useToast();
 
@@ -60,24 +55,15 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
     setError(null);
     setZoom(100);
     setActiveSlide(0);
-    setActiveTab("preview");
     setPresentationEngine("deck");
     setDocxRendering(false);
     setDocxError(null);
     setCopied(false);
-    setGeneratingSummary(false);
-    setSummaryData(null);
 
     materialsApi
       .preview(materialId)
       .then((res) => {
         setData(res.data);
-        if (res.data?.material?.summary) {
-          setSummaryData({
-            summary: res.data.material.summary,
-            wordCount: res.data.material.summaryWordCount || res.data.material.summary.split(/\s+/).filter(Boolean).length,
-          });
-        }
       })
       .catch((err) => {
         const msg = err.response?.data?.detail || err.message || "Could not load material preview.";
@@ -131,7 +117,7 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
 
   // Load and render authentic DOCX document with docx-preview
   useEffect(() => {
-    if (!open || !isDoc || activeTab !== "preview" || !fileUrl) return;
+    if (!open || !isDoc || !fileUrl) return;
 
     let isCancelled = false;
     setDocxRendering(true);
@@ -221,25 +207,6 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
     }
   };
 
-  const handleGenerateSummary = async () => {
-    if (generatingSummary) return;
-    setGeneratingSummary(true);
-    try {
-      showToast("Generating AI summary from original document...", "info");
-      const res = await materialsApi.summarize(materialId);
-      setSummaryData({
-        summary: res.data.summary,
-        wordCount: res.data.wordCount,
-      });
-      showToast("AI summary generated successfully!", "success");
-    } catch (err) {
-      const msg = err.response?.data?.detail || err.message || "Failed to generate summary.";
-      showToast(msg, "error");
-    } finally {
-      setGeneratingSummary(false);
-    }
-  };
-
   const handleZoomIn = () => setZoom((z) => Math.min(z + 20, 200));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 20, 60));
   const handleResetZoom = () => setZoom(100);
@@ -282,31 +249,6 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {/* View Mode Tabs: Document Preview vs AI Summary */}
-            <div className="flex items-center bg-gray-200/80 p-0.5 rounded-lg text-xs font-semibold">
-              <button
-                onClick={() => setActiveTab("preview")}
-                className={`px-3 py-1 rounded-md transition ${
-                  activeTab === "preview"
-                    ? "bg-white text-brand-900 shadow-xs font-bold"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                {isPresentation ? "Slides Preview" : "Document Preview"}
-              </button>
-              <button
-                onClick={() => setActiveTab("summary")}
-                className={`px-3 py-1 rounded-md transition flex items-center gap-1.5 ${
-                  activeTab === "summary"
-                    ? "bg-white text-brand-900 shadow-xs font-bold"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <Sparkles size={13} className="text-brand-600" />
-                <span>AI Summary</span>
-              </button>
-            </div>
-
             <button
               onClick={handleDownload}
               disabled={downloading}
@@ -338,7 +280,7 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
         </div>
 
         {/* Sub-toolbar when viewing original document */}
-        {activeTab === "preview" && !loading && !error && (
+        {!loading && !error && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-white px-4 py-2 text-xs">
             <div className="flex items-center gap-2">
               <span className="text-gray-500 font-medium">Original Document Viewer:</span>
@@ -474,91 +416,7 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
           )}
 
           {!loading && !error && (
-            <>
-              {/* TAB 1: SEPARATE AI SUMMARY SECTION (Only when student requests it) */}
-              {activeTab === "summary" && (
-                <div className="w-full h-full overflow-y-auto p-4 sm:p-8 bg-gray-50">
-                  <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-md p-6 sm:p-10 border border-gray-200 space-y-6">
-                    <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-                      <div>
-                        <span className="text-xs font-bold text-brand-700 uppercase tracking-wide flex items-center gap-1.5">
-                          <Sparkles size={14} className="text-brand-600" />
-                          AI Summarization Feature
-                        </span>
-                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
-                          {material?.title}
-                        </h1>
-                      </div>
-                      <span className="rounded-full bg-brand-50 border border-brand-200 px-3 py-1 text-xs font-bold text-brand-900">
-                        {ext.toUpperCase()}
-                      </span>
-                    </div>
-
-                    {summaryData?.summary ? (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>AI Summary • Grounded in original study material</span>
-                          <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                            {summaryData.wordCount || 0} words
-                          </span>
-                        </div>
-                        <div className="bg-brand-50/40 p-5 rounded-xl border border-brand-100 text-sm text-gray-800 leading-relaxed whitespace-pre-line font-normal">
-                          {summaryData.summary}
-                        </div>
-                        <div className="flex justify-end pt-2">
-                          <button
-                            onClick={handleGenerateSummary}
-                            disabled={generatingSummary}
-                            className="btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5"
-                          >
-                            <RefreshCw size={13} className={generatingSummary ? "animate-spin" : ""} />
-                            <span>{generatingSummary ? "Regenerating..." : "Regenerate Summary"}</span>
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
-                        <Sparkles size={36} className="mx-auto text-brand-500 mb-3" />
-                        <h3 className="text-base font-bold text-gray-900">No Summary Generated Yet</h3>
-                        <p className="mt-1 text-xs text-gray-500 max-w-md mx-auto">
-                          In CampusVerse, notes preview shows your original document unchanged. AI summaries are only generated when you explicitly request them.
-                        </p>
-                        <button
-                          onClick={handleGenerateSummary}
-                          disabled={generatingSummary}
-                          className="btn-primary mt-5 !py-2 !px-4 text-xs inline-flex items-center gap-2 shadow-sm"
-                        >
-                          {generatingSummary ? (
-                            <>
-                              <RefreshCw size={14} className="animate-spin" />
-                              <span>Generating AI Summary...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles size={14} />
-                              <span>Generate AI Summary Now</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-100 text-xs text-gray-500">
-                      <span>{material?.department} • Semester {material?.semester}</span>
-                      <button
-                        onClick={() => setActiveTab("preview")}
-                        className="btn-secondary !py-1.5 !px-3 text-xs"
-                      >
-                        Return to Original Preview
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 2: ORIGINAL DOCUMENT PREVIEW (Unchanged, Unsummarized) */}
-              {activeTab === "preview" && (
-                <div className="flex-1 w-full h-full relative overflow-hidden flex flex-col">
+            <div className="flex-1 w-full h-full relative overflow-hidden flex flex-col">
                   {/* 1. PDF DOCUMENT VIEWER */}
                   {isPdf && (
                     <div className="flex-1 w-full h-full overflow-hidden flex flex-col bg-gray-200">
@@ -850,8 +708,6 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
                   )}
                 </div>
               )}
-            </>
-          )}
         </div>
 
         {/* Footer info bar */}

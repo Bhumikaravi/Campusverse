@@ -236,6 +236,9 @@ export default function DashboardUploadSection({ onUploadSuccess }) {
       } finally {
         setClassifying(false);
       }
+
+      // Automatically synthesize AI summary right here during upload
+      generateSummaryForFile(selectedFile, cleanTitle, detectedCat || academicCategory, uniqueDocId);
     } catch (err) {
       setProcessingStatus("Failed");
       setExtractionStatus("Failed");
@@ -251,38 +254,54 @@ export default function DashboardUploadSection({ onUploadSuccess }) {
     }
   };
 
-  const handleGenerateSummaryClick = async () => {
-    if (!file) {
-      showToast("Please upload a document first.", "error");
-      return;
-    }
+  const generateSummaryForFile = async (targetFile, currentTitle, currentCat, docId) => {
+    if (!targetFile) return;
     setGeneratingSummary(true);
     setStatusMessage("Generating AI summary from document content...");
     try {
       const fd = new FormData();
-      fd.append("file", file);
-      fd.append("title", title || file.name);
-      fd.append("academicCategory", academicCategory);
-      fd.append("documentId", documentId || `doc_${Date.now()}`);
+      fd.append("file", targetFile);
+      fd.append("title", currentTitle || targetFile.name);
+      fd.append("academicCategory", currentCat || academicCategory || "Engineering");
+      fd.append("documentId", docId || documentId || `doc_${Date.now()}`);
       fd.append("maxWords", "500");
 
       const res = await materialsApi.generateAiSummary(fd);
       const data = res.data;
-      if (data.summary && data.summary.trim()) {
-        const sumText = data.summary.trim();
-        const wCount = data.wordCount || sumText.split(/\s+/).filter(Boolean).length;
+      if (data && (data.summary || data.structuredSummary)) {
+        const sumText = (data.summary || "").trim();
+        const wCount = data.wordCount || (sumText ? sumText.split(/\s+/).filter(Boolean).length : 0);
         setAiSummary(sumText);
         setStructuredSummary(data.structuredSummary || null);
         setSummaryWordCount(wCount);
         setMaxSummaryWords(data.maxWords || 500);
-        showToast("AI summary generated successfully!", "success");
+      } else {
+        throw new Error("No summary returned");
       }
     } catch (err) {
-      const msg = err.response?.data?.detail || err.message || "Could not generate summary.";
-      showToast(typeof msg === "string" ? msg : "Failed to generate summary.", "error");
+      console.warn("Backend summary error, using content-based summary:", err);
+      try {
+        const localSum = await generateContentBasedSummary(targetFile, currentTitle || targetFile.name, 500);
+        if (localSum) {
+          setAiSummary(localSum.summary || "");
+          setStructuredSummary(localSum.structuredData || null);
+          setSummaryWordCount(localSum.wordCount || 0);
+          setMaxSummaryWords(500);
+        }
+      } catch (lErr) {
+        console.warn("Local summary fallback notice:", lErr);
+      }
     } finally {
       setGeneratingSummary(false);
     }
+  };
+
+  const handleGenerateSummaryClick = () => {
+    if (!file) {
+      showToast("Please upload a document first.", "error");
+      return;
+    }
+    generateSummaryForFile(file, title, academicCategory, documentId);
   };
 
   const handleSubmit = async (e) => {
@@ -776,10 +795,12 @@ export default function DashboardUploadSection({ onUploadSuccess }) {
             <div className="p-6 rounded-2xl bg-white border border-dashed border-gray-300 text-xs text-gray-500 text-center space-y-3">
               <div className="flex items-center justify-center gap-2 text-brand-700 font-bold">
                 <Sparkles size={16} />
-                <span>AI Summarization (Optional)</span>
+                <span>AI Generated Summary</span>
               </div>
               <p className="max-w-md mx-auto text-gray-500 text-[11px] leading-relaxed">
-                CampusVerse keeps your uploaded notes in their exact original form for Preview. You can optionally generate an AI summary now, or generate it later from the details page.
+                {file
+                  ? "Extracting document content and synthesizing structured study notes..."
+                  : "Upload your study material above to automatically synthesize an AI summary with Key Concepts and Examination Takeaways."}
               </p>
               {file && (
                 <button

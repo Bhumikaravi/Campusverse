@@ -623,8 +623,29 @@ materialsRouter.post("/ai-summary", async (c) => {
   const file = formData.get("file") as File | null;
   const title = (formData.get("title") as string) || "Study Document";
 
-  const { summary, wordCount } = await generateDocumentSummary(title, "Comprehensive study guide.");
-  return c.json({ summary, wordCount, processingStatus: "Summary ready" });
+  let docText = "";
+  if (file) {
+    try {
+      const bytes = await file.arrayBuffer();
+      const ext = await extractDocumentContent(new Uint8Array(bytes), file.name);
+      docText = ext.fullText || "";
+    } catch (err) {
+      console.warn("File extraction notice in ai-summary route:", err);
+    }
+  }
+
+  const { summary, structuredSummary, wordCount } = await generateDocumentSummary(
+    title,
+    docText || `${title} - University syllabus study material.`
+  );
+
+  return c.json({
+    summary,
+    structuredSummary,
+    wordCount,
+    maxWords: 500,
+    processingStatus: "Summary ready",
+  });
 });
 
 // GET /api/materials/:id/download (Downloads file in original format or returns signed download URL)
