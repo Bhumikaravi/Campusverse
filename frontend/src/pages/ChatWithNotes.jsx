@@ -217,7 +217,17 @@ export default function ChatWithNotes() {
       };
       setMessages((prev) => [...prev, aiMsg]);
     } catch (err) {
-      showToast(err.friendlyMessage || "Failed to generate answer.", "error");
+      const errMsg = err?.errorMessage || err?.friendlyMessage || err?.message || "Failed to generate answer.";
+      showToast(errMsg, "error");
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Sorry, I encountered an issue retrieving an answer for that question. Please make sure at least one study material is selected, or try rephrasing your question.",
+          sources: [],
+          createdAt: new Date().toISOString(),
+        },
+      ]);
     } finally {
       setSending(false);
     }

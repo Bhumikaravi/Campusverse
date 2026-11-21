@@ -542,33 +542,19 @@ async def upload_material(
     incoming_summary = (summary or description or "").strip()
     max_summary_words = getattr(settings, "MAX_SUMMARY_WORDS", 500)
 
-    if not incoming_summary or len(incoming_summary.split()) < 10:
-        try:
-            summary_res = await generate_document_summary(
-                title=detected_title,
-                pages_text=extraction_res.pages_text,
-                academic_category=chosen_cat,
-                max_words=max_summary_words,
-                document_id=doc_id,
-                pages_failed=extraction_res.pages_failed
-            )
-            clean_desc = summary_res["summary"]
-            summary_word_count = summary_res["wordCount"]
-            proc_status = summary_res["status"]
-        except Exception as sum_err:
-            logger.error("Summarization failure on upload for doc %s: %s", doc_id, sum_err)
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Could not generate summary from document content: {str(sum_err)}. Please verify the document text is readable and retry."
-            )
-    else:
+    # Keep AI summarization separate: only persist summary if explicitly provided/requested
+    if incoming_summary:
         desc_words = incoming_summary.split()
         if len(desc_words) > max_summary_words:
             clean_desc = " ".join(desc_words[:max_summary_words]).strip() + "."
         else:
             clean_desc = incoming_summary
         summary_word_count = len(clean_desc.split())
-        proc_status = "Completed"
+        proc_status = "Summary ready"
+    else:
+        clean_desc = ""
+        summary_word_count = 0
+        proc_status = "Uploaded"
 
     # FEATURE 2: AI Quality Analysis before admin review
     quality_report = analyze_document_quality(
@@ -959,11 +945,16 @@ async def get_inline_file(
             detail="This file is pending admin approval and cannot be previewed."
         )
 
-    ext = mat.get("extension", "").lower()
-    if ext not in [".pdf", ".png", ".jpg", ".jpeg", ".webp"]:
+    ext = (mat.get("extension", "") or Path(mat.get("originalName", "")).suffix).lower()
+    allowed_inline = [
+        ".pdf", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg",
+        ".txt", ".md", ".json", ".py", ".java", ".c", ".cpp", ".sql", ".csv",
+        ".docx", ".pptx", ".xlsx", ".doc", ".ppt", ".xls"
+    ]
+    if ext not in allowed_inline:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail="This file type cannot be displayed inline. Use the download link."
+            detail=f"Files of type '{ext}' cannot be displayed inline. Use the download link."
         )
 
     storage = get_storage()
@@ -988,7 +979,7 @@ async def get_inline_file(
                 except Exception:
                     pass
 
-        if not buffer:
+        if not buffer and ext == ".pdf":
             import pymupdf
             doc = pymupdf.open()
             page = doc.new_page(width=595, height=842)
@@ -1004,17 +995,126 @@ async def get_inline_file(
             buffer = doc.tobytes()
             doc.close()
 
+    if not buffer:
+        raise HTTPException(status_code=404, detail="File content not found in storage.")
+
     original_name = mat.get("originalName", f"document{ext}")
+    mime_map = {
+        ".pdf": "application/pdf",
+        ".txt": "text/plain; charset=utf-8",
+        ".md": "text/markdown; charset=utf-8",
+        ".json": "application/json",
+        ".csv": "text/csv; charset=utf-8",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+        ".svg": "image/svg+xml",
+    }
+    media_type = mime_map.get(ext, mat.get("mimeType", "application/octet-stream"))
 
     return RawResponse(
         content=buffer,
-        media_type=mat.get("mimeType", "application/pdf"),
+        media_type=media_type,
         headers={
             "Content-Disposition": f'inline; filename="{original_name}"',
             "X-Content-Type-Options": "nosniff",
             "Cache-Control": "private, max-age=3600"
         }
     )
+
+# ---------------------------------------------------------------- SUMMARIZE (ON DEMAND)
+@router.post("/{material_id}/summarize")
+async def summarize_material_on_demand(
+    material_id: str,
+    current_user: Optional[dict] = Depends(get_optional_user),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """
+    Generates an AI summary for this document on explicit request only.
+    Preserves separation between original document preview and AI summarization.
+    """
+    query = {"_id": ObjectId(material_id)} if ObjectId.is_valid(material_id) else {"_id": material_id}
+    mat = await db["materials"].find_one(query)
+    if not mat:
+        raise HTTPException(status_code=404, detail="Study material not found.")
+
+    if mat.get("status") in [MATERIAL_STATUS.REJECTED, MATERIAL_STATUS.ADMIN_REJECTED]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Upload rejected. CampusVerse only accepts academic study materials. Rejected documents cannot be summarized."
+        )
+
+    is_owner = current_user and str(mat.get("uploader")) == str(current_user["id"])
+    is_approved = mat.get("status") == MATERIAL_STATUS.ADMIN_APPROVED or (
+        settings.AUTO_PUBLISH_AI_APPROVED and mat.get("status") == MATERIAL_STATUS.AI_APPROVED
+    )
+    if not (is_approved or is_owner or is_staff(current_user)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This material is currently pending admin approval."
+        )
+
+    storage = get_storage()
+    buffer = None
+    try:
+        buffer = await storage.download(mat["storageKey"])
+    except Exception:
+        sample_dir = Path(__file__).resolve().parent.parent.parent.parent / "sample_files"
+        candidates = [
+            sample_dir / (mat.get("originalName") or ""),
+            sample_dir / (mat.get("filename") or ""),
+            sample_dir / Path(mat.get("storageKey", "")).name,
+            sample_dir / "01_os_cpu_scheduling.pdf"
+        ]
+        for c in candidates:
+            if c and c.exists() and c.is_file():
+                buffer = c.read_bytes()
+                break
+
+    if not buffer:
+        raise HTTPException(status_code=400, detail="Cannot read document bytes to generate summary.")
+
+    ext = (mat.get("extension") or ".pdf").lower()
+    pages_text = extract_document_pages(buffer, ext, max_pages=settings.MAX_DOCUMENT_PAGES)
+    if not pages_text:
+        raise HTTPException(status_code=400, detail="No readable text found in document to summarize.")
+
+    max_summary_words = getattr(settings, "MAX_SUMMARY_WORDS", 500)
+    summary_obj = await generate_document_summary(
+        title=mat.get("title", "Study Material"),
+        pages_text=pages_text,
+        academic_category=mat.get("academicCategory") or mat.get("department") or "Engineering",
+        max_words=max_summary_words,
+        document_id=str(mat.get("documentId") or material_id),
+    )
+
+    clean_summary = summary_obj["summary"]
+    word_count = summary_obj["wordCount"]
+
+    await db["materials"].update_one(
+        query,
+        {"$set": {
+            "summary": clean_summary,
+            "description": clean_summary,
+            "summaryWordCount": word_count,
+            "processingStatus": "Summary ready",
+            "updatedAt": datetime.utcnow()
+        }}
+    )
+
+    return {
+        "materialId": material_id,
+        "summary": clean_summary,
+        "structuredSummary": summary_obj.get("structuredSummary"),
+        "wordCount": word_count,
+        "maxWords": max_summary_words,
+        "processingStatus": "Summary ready"
+    }
 
 # ------------------------------------------------------------------- DOWNLOAD
 @router.get("/{material_id}/download")

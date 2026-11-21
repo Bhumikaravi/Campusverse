@@ -350,20 +350,50 @@ RULES:
   }
 
   // Built-in Teacher Grounded Synthesis (Exact excerpts from the matched slides/pages)
-  const bestExcerpt = sources[0].text;
-  const points = bestExcerpt
-    .split(/(?<=[.!?])\s+/)
-    .filter((s) => s.trim().length > 15)
-    .slice(0, 4);
+  const topSource = sources[0];
+  const sectionTitle = topSource.heading || `Slide/Page ${topSource.pageNumber}`;
 
-  const bulletList =
-    points.length > 0
-      ? points.map((p) => `* ${p.trim()}`).join("\n")
-      : `* ${bestExcerpt.slice(0, 300)}...`;
+  // Extract paragraphs or bullet lines
+  const lines = topSource.text
+    .split(/\r?\n+/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 5);
+
+  let formattedPoints = "";
+  if (lines.length > 1) {
+    formattedPoints = lines
+      .map((l) => (l.startsWith("•") || l.startsWith("-") || l.startsWith("*") || /^\d+\./.test(l) ? l : `• ${l}`))
+      .join("\n");
+  } else {
+    const sentences = topSource.text
+      .split(/(?<=[.!?])\s+/)
+      .filter((s) => s.trim().length > 15)
+      .slice(0, 4);
+    formattedPoints =
+      sentences.length > 0
+        ? sentences.map((s) => `• ${s.trim()}`).join("\n")
+        : `• ${topSource.text.slice(0, 350)}`;
+  }
+
+  // Check if second source adds additional context
+  let secondaryContext = "";
+  if (sources.length > 1 && sources[1].text && sources[1].pageNumber !== topSource.pageNumber) {
+    const s2 = sources[1];
+    const s2Lines = s2.text
+      .split(/\r?\n+/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 10)
+      .slice(0, 2);
+    if (s2Lines.length > 0) {
+      secondaryContext = `\n\n**Additional Context from ${s2.heading || `Slide/Page ${s2.pageNumber}`}**:\n${s2Lines.map((l) => `• ${l}`).join("\n")}`;
+    }
+  }
 
   const fallbackAnswer = `Based on your uploaded study notes in **${topDocTitle}** (Slide/Page ${topPageNum}):
 
-${bulletList}
+### ${sectionTitle}
+
+${formattedPoints}${secondaryContext}
 
 *(Citation: ${topDocTitle}, Slide/Page ${topPageNum})*`;
 

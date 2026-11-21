@@ -70,26 +70,25 @@ export default function MaterialCard({ material, onToggleBookmark }) {
     }
     try {
       showToast("Starting download...", "info");
-      const res = await api.get(`/materials/${resolvedId}/download?json=true`);
-      const downloadUrl = res.data?.url;
+      const downloadEndpoint = `${api.defaults.baseURL}/materials/${resolvedId}/download`;
       const downloadName =
-        res.data?.fileName ||
         material.originalName ||
-        `${material.title || "study-material"}.${(material.fileType || "pdf").toLowerCase()}`;
+        material.fileName ||
+        `${material.title || "study-material"}.${(material.fileType || material.extension || "pdf").toLowerCase().replace(".", "")}`;
 
-      if (downloadUrl) {
-        const link = document.createElement("a");
-        link.href = downloadUrl;
-        link.setAttribute("download", downloadName);
-        link.setAttribute("target", "_blank");
-        link.setAttribute("rel", "noopener noreferrer");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      const link = document.createElement("a");
+      link.href = downloadEndpoint;
+      link.setAttribute("download", downloadName);
+      link.setAttribute("target", "_blank");
+      link.setAttribute("rel", "noopener noreferrer");
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        try {
+          document.body.removeChild(link);
+        } catch {}
         showToast(`Downloaded ${downloadName}`, "success");
-      } else {
-        window.location.href = `${api.defaults.baseURL}/materials/${resolvedId}/download`;
-      }
+      }, 1000);
     } catch {
       window.location.href = `${api.defaults.baseURL}/materials/${resolvedId}/download`;
     }

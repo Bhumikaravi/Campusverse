@@ -194,7 +194,17 @@ chatRouter.post("/sessions/:id/message", async (c) => {
   }
 
   // Run Grounded RAG Pipeline
-  const ragResult = await executeRAG(question, materialIds, supabase, history);
+  let ragResult: any;
+  try {
+    ragResult = await executeRAG(question || "", materialIds, supabase, history);
+  } catch (ragErr) {
+    console.error("executeRAG error:", ragErr);
+    ragResult = {
+      answer: "I couldn't process this question right now. Please try again or ask a question directly related to your uploaded study notes.",
+      sources: [],
+      caseType: "CASE_2_NOT_IN_SYLLABUS",
+    };
+  }
 
   // Record user and assistant messages if persistent session exists
   if (session && isUuid(id)) {

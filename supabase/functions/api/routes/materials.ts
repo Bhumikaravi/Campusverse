@@ -267,34 +267,50 @@ materialsRouter.get("/:id/preview", async (c) => {
   if (ext === "pdf") kind = "pdf";
   else if (["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(ext)) kind = "image";
   else if (["pptx", "ppt", "odp"].includes(ext)) kind = "slides";
-  else if (["docx", "doc", "rtf", "odt"].includes(ext)) kind = "document";
+  else if (["docx", "doc", "rtf", "odt"].includes(ext)) kind = "docx";
   else if (["xlsx", "xls", "csv"].includes(ext)) kind = "spreadsheet";
-  else if (["txt", "md", "json", "js", "ts", "py", "java", "c", "cpp", "sql"].includes(ext)) kind = "text";
+  else if (["txt", "md", "json", "js", "ts", "py", "java", "c", "cpp", "sql", "log"].includes(ext)) kind = "text";
 
   const downloadName = item.original_name || `${(item.title || "material").replace(/[^a-zA-Z0-9._-]/g, "_")}.${ext}`;
-  const textContent = item.summary || item.description || "Academic study material.";
-  const htmlContent = `<div class="p-6 bg-white rounded-xl shadow-xs"><h2 class="text-xl font-bold text-gray-900 mb-2">${item.title}</h2><div class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-100 text-brand-800 mb-4">${item.academic_category || item.department || "Academic Notes"}</div><p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">${textContent}</p></div>`;
 
-  // Fetch real extracted slides / pages from document_chunks
-  const { data: chunkRecords } = await supabase
-    .from("document_chunks")
-    .select("page_number, heading, text")
-    .eq("material_id", item.id)
-    .order("page_number", { ascending: true });
+  // If text file, try to load original text content for preview
+  let textContent = "";
+  if (kind === "text" && item.storage_key) {
+    try {
+      const { data: fileBlob } = await supabase.storage
+        .from("study-materials")
+        .download(item.storage_key);
+      if (fileBlob) {
+        textContent = await fileBlob.text();
+      }
+    } catch {
+      textContent = "";
+    }
+  }
 
-  const realSlides = (chunkRecords && chunkRecords.length > 0)
-    ? chunkRecords.map((c: any) => ({
+  // Load real slides from document_chunks for slide navigation
+  let slides: Array<{ index: number; title: string; text: string }> = [];
+  if (kind === "slides") {
+    const { data: chunkRecords } = await supabase
+      .from("document_chunks")
+      .select("page_number, heading, text")
+      .eq("material_id", item.id)
+      .order("page_number", { ascending: true });
+
+    if (chunkRecords && chunkRecords.length > 0) {
+      slides = chunkRecords.map((c: any) => ({
         index: c.page_number,
-        heading: c.heading || `Slide ${c.page_number}`,
+        title: c.heading || `Slide ${c.page_number}`,
         text: c.text,
-      }))
-    : [{ index: 1, heading: item.title, text: `${item.title}\n\n${textContent}` }];
+      }));
+    }
+  }
 
   return c.json({
     material: {
       ...serializeMaterial(item),
-      totalPageCount: realSlides.length,
-      processedPageCount: realSlides.length,
+      totalPageCount: slides.length > 0 ? slides.length : (item.total_page_count || item.page_count || 1),
+      processedPageCount: slides.length > 0 ? slides.length : (item.processed_page_count || item.page_count || 1),
     },
     preview: {
       kind,
@@ -302,11 +318,63 @@ materialsRouter.get("/:id/preview", async (c) => {
       fileName: downloadName,
       extension: ext,
       mimeType: item.mime_type || getMimeType(ext),
-      html: htmlContent,
-      slides: realSlides,
-      totalSlides: realSlides.length,
-      summary: textContent,
+      content: textContent,
+      lineCount: textContent ? textContent.split("\n").length : 0,
+      slides,
+      summary: item.summary || "",
     },
+  });
+});
+
+// POST /api/materials/:id/summarize (On-demand AI Summarization)
+materialsRouter.post("/:id/summarize", async (c) => {
+  const supabase = c.get("supabase");
+  const id = c.req.param("id");
+
+  const { data: item } = await supabase
+    .from("study_materials")
+    .select("*")
+    .or(`id.eq.${id},document_id.eq.${id}`)
+    .single();
+
+  if (!item) return c.json({ detail: "Material not found" }, 404);
+
+  // Extract text or use existing document text
+  let docText = item.extracted_text || "";
+  if (!docText && item.storage_key) {
+    try {
+      const { data: fileBlob } = await supabase.storage
+        .from("study-materials")
+        .download(item.storage_key);
+      if (fileBlob) {
+        const ext = (item.extension || "pdf").toLowerCase().replace(".", "");
+        const arrBuf = await fileBlob.arrayBuffer();
+        const extracted = await extractDocumentContent(new Uint8Array(arrBuf), ext);
+        docText = extracted.fullText;
+      }
+    } catch {
+      docText = "";
+    }
+  }
+
+  const textBuffer = docText.slice(0, 4000) || `${item.title} - ${item.department} academic study notes covering ${item.subject}.`;
+  const { summary: genSummary, wordCount } = await generateDocumentSummary(item.title, textBuffer);
+
+  await supabase
+    .from("study_materials")
+    .update({
+      summary: genSummary,
+      description: genSummary,
+      summary_word_count: wordCount,
+      processing_status: "Summary ready",
+    })
+    .eq("id", item.id);
+
+  return c.json({
+    materialId: item.id,
+    summary: genSummary,
+    wordCount,
+    processingStatus: "Summary ready",
   });
 });
 
@@ -334,6 +402,37 @@ materialsRouter.get("/:id/file", async (c) => {
   }
 
   return c.redirect(fileUrl, 302);
+});
+
+// GET /api/materials/:id/raw (Direct binary stream of original uploaded file)
+materialsRouter.get("/:id/raw", async (c) => {
+  const supabase = c.get("supabase");
+  const id = c.req.param("id");
+
+  const { data: item } = await supabase
+    .from("study_materials")
+    .select("*")
+    .or(`id.eq.${id},document_id.eq.${id}`)
+    .single();
+
+  if (!item || !item.storage_key) return c.json({ detail: "Material not found" }, 404);
+
+  const { data: fileBlob, error } = await supabase.storage
+    .from("study-materials")
+    .download(item.storage_key);
+
+  if (error || !fileBlob) return c.json({ detail: "File download error" }, 500);
+
+  const ext = (item.extension || "pdf").toLowerCase().replace(".", "");
+  const mime = item.mime_type || getMimeType(ext);
+
+  return new Response(fileBlob, {
+    headers: {
+      "Content-Type": mime,
+      "Content-Disposition": `inline; filename="${item.original_name || 'document'}.${ext}"`,
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
 });
 
 // POST /api/materials (Upload with Supabase Storage, AI Verification, and Chunking)
@@ -402,7 +501,7 @@ materialsRouter.post("/", async (c) => {
     }, 400);
   }
 
-  // 3. Perform AI Verification & Summary Generation
+  // 3. AI Content Verification (Summarization is on explicit request)
   const textBuffer = extraction.fullText.slice(0, 3000) || userSummary || `${title} - University syllabus study material covering ${subject} for semester ${semester}.`;
   const { status: aiStatus, aiReview } = await reviewDocumentWithAI(
     title,
@@ -413,8 +512,8 @@ materialsRouter.post("/", async (c) => {
     textBuffer
   );
 
-  const { summary: generatedSummary, wordCount } = await generateDocumentSummary(title, textBuffer);
-  const finalSummary = userSummary || generatedSummary;
+  const finalSummary = userSummary ? userSummary.trim() : "";
+  const wordCount = finalSummary ? finalSummary.split(/\s+/).filter(Boolean).length : 0;
 
   // 4. Save to Supabase PostgreSQL
   const docId = `doc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -511,10 +610,56 @@ materialsRouter.get("/:id/download", async (c) => {
     console.warn("Failed to increment download count:", err);
   }
 
-  const ext = item.extension ? (item.extension.startsWith(".") ? item.extension : `.${item.extension}`) : ".pdf";
-  const downloadName = item.original_name || `${(item.title || "study_material").replace(/[^a-zA-Z0-9._-]/g, "_")}${ext}`;
+  const rawExt = item.extension || "pdf";
+  const cleanExt = rawExt.toLowerCase().replace(/^\./, "");
+  const ext = `.${cleanExt}`;
+  const baseName = (item.title || "study_material").replace(/[^a-zA-Z0-9._-]/g, "_");
+  const downloadName = item.original_name || (baseName.endsWith(ext) ? baseName : `${baseName}${ext}`);
+  const mime = item.mime_type || getMimeType(cleanExt);
 
-  let downloadUrl = item.file_url;
+  // If client explicitly asks for JSON (?json=true)
+  if (c.req.query("json") === "true") {
+    let downloadUrl = item.file_url;
+    if (item.storage_key) {
+      const { data: signed } = await supabase.storage
+        .from("study-materials")
+        .createSignedUrl(item.storage_key, 300, {
+          download: downloadName,
+        });
+      if (signed?.signedUrl) {
+        downloadUrl = signed.signedUrl;
+      }
+    }
+    return c.json({
+      url: downloadUrl,
+      fileName: downloadName,
+      extension: ext,
+      mimeType: mime,
+    });
+  }
+
+  // Stream binary directly from storage with Content-Disposition: attachment so browser triggers direct file download
+  if (item.storage_key) {
+    try {
+      const { data: fileBlob, error: dlErr } = await supabase.storage
+        .from("study-materials")
+        .download(item.storage_key);
+
+      if (!dlErr && fileBlob) {
+        return new Response(fileBlob, {
+          headers: {
+            "Content-Type": mime,
+            "Content-Disposition": `attachment; filename="${downloadName}"`,
+            "Access-Control-Allow-Origin": "*",
+          },
+        });
+      }
+    } catch (streamErr) {
+      console.warn("Direct stream notice, falling back to redirect:", streamErr);
+    }
+  }
+
+  // Fallback: 302 redirect with download attachment parameter in signed URL
   if (item.storage_key) {
     const { data: signed } = await supabase.storage
       .from("study-materials")
@@ -522,22 +667,11 @@ materialsRouter.get("/:id/download", async (c) => {
         download: downloadName,
       });
     if (signed?.signedUrl) {
-      downloadUrl = signed.signedUrl;
+      return c.redirect(signed.signedUrl, 302);
     }
   }
 
-  // If client explicitly asks for JSON (?json=true)
-  if (c.req.query("json") === "true") {
-    return c.json({
-      url: downloadUrl,
-      fileName: downloadName,
-      extension: ext,
-      mimeType: item.mime_type || getMimeType(ext),
-    });
-  }
-
-  // Direct 302 Redirect: triggers browser file download in exact original format
-  return c.redirect(downloadUrl, 302);
+  return c.redirect(item.file_url || "/sample_files/01_os_cpu_scheduling.pdf", 302);
 });
 
 // POST /api/materials/:id/reindex (Extracts and reindexes all chunks from storage)

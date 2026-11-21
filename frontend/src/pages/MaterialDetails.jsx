@@ -41,6 +41,32 @@ export default function MaterialDetails() {
   const [submitting, setSubmitting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
+
+  const handleGenerateSummary = async () => {
+    const validId = material?.id || material?._id || id;
+    if (!validId) return;
+    setGeneratingSummary(true);
+    try {
+      showToast("Generating AI summary grounded in original notes...", "info");
+      const res = await materialsApi.summarize(validId);
+      const newSummary = res.data?.summary || "";
+      const newWordCount = res.data?.wordCount || newSummary.split(/\s+/).filter(Boolean).length;
+      setMaterial((prev) => ({
+        ...prev,
+        summary: newSummary,
+        description: newSummary,
+        summaryWordCount: newWordCount,
+        processingStatus: "Summary ready",
+      }));
+      showToast("AI summary generated successfully!", "success");
+    } catch (err) {
+      const msg = err.response?.data?.detail || err.message || "Failed to generate summary.";
+      showToast(msg, "error");
+    } finally {
+      setGeneratingSummary(false);
+    }
+  };
 
   const load = () => {
     if (!id || id === "undefined" || id === "null") {
@@ -106,26 +132,25 @@ export default function MaterialDetails() {
     }
     try {
       showToast("Starting download...", "info");
-      const res = await api.get(`/materials/${validId}/download?json=true`);
-      const downloadUrl = res.data?.url;
+      const downloadEndpoint = `${api.defaults.baseURL}/materials/${validId}/download`;
       const downloadName =
-        res.data?.fileName ||
         material?.originalName ||
-        `${material?.title || "study-material"}.${(material?.fileType || "pdf").toLowerCase()}`;
+        material?.fileName ||
+        `${material?.title || "study-material"}.${(material?.fileType || material?.extension || "pdf").toLowerCase().replace(".", "")}`;
 
-      if (downloadUrl) {
-        const link = document.createElement("a");
-        link.href = downloadUrl;
-        link.setAttribute("download", downloadName);
-        link.setAttribute("target", "_blank");
-        link.setAttribute("rel", "noopener noreferrer");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      const link = document.createElement("a");
+      link.href = downloadEndpoint;
+      link.setAttribute("download", downloadName);
+      link.setAttribute("target", "_blank");
+      link.setAttribute("rel", "noopener noreferrer");
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        try {
+          document.body.removeChild(link);
+        } catch {}
         showToast(`Downloaded ${downloadName}`, "success");
-      } else {
-        window.location.href = `${api.defaults.baseURL}/materials/${validId}/download`;
-      }
+      }, 1000);
     } catch {
       window.location.href = `${api.defaults.baseURL}/materials/${validId}/download`;
     }
@@ -291,20 +316,59 @@ export default function MaterialDetails() {
             )}
           </div>
 
-          {/* AI-Generated Summary Container */}
+          {/* AI-Generated Summary Container (Separate from Preview) */}
           <div className="card mt-4 p-5 bg-white/95 rounded-2xl shadow-md border border-white/40">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-100">
               <h3 className="text-xs font-bold uppercase tracking-wider text-brand-900 flex items-center gap-1.5">
                 <Sparkles size={14} className="text-brand-600" />
                 <span>AI-Generated Summary</span>
               </h3>
-              <span className="text-xs font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                {material.summaryWordCount || (material.summary || material.description || "").trim().split(/\s+/).filter(Boolean).length} / {material.maxSummaryWords || 500} words
-              </span>
+              {material.summary ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    {material.summaryWordCount || material.summary.trim().split(/\s+/).filter(Boolean).length} / {material.maxSummaryWords || 500} words
+                  </span>
+                  <button
+                    onClick={handleGenerateSummary}
+                    disabled={generatingSummary}
+                    className="text-xs text-brand-700 hover:text-brand-900 font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg border border-brand-200 hover:bg-brand-50 transition"
+                    title="Regenerate Summary"
+                  >
+                    <RefreshCw size={11} className={generatingSummary ? "animate-spin" : ""} />
+                    <span>{generatingSummary ? "Generating..." : "Regenerate"}</span>
+                  </button>
+                </div>
+              ) : null}
             </div>
-            <p className="text-sm leading-relaxed text-gray-800 bg-brand-50/30 p-3.5 rounded-xl border border-brand-100/60 font-normal">
-              {material.summary || material.description || "No summary available for this material."}
-            </p>
+
+            {material.summary ? (
+              <p className="text-sm leading-relaxed text-gray-800 bg-brand-50/30 p-3.5 rounded-xl border border-brand-100/60 font-normal whitespace-pre-line">
+                {material.summary}
+              </p>
+            ) : (
+              <div className="p-5 rounded-xl bg-gray-50 border border-dashed border-gray-200 text-center">
+                <p className="text-xs text-gray-500 mb-3">
+                  No summary generated for this document yet. Preview displays your original uploaded notes unchanged.
+                </p>
+                <button
+                  onClick={handleGenerateSummary}
+                  disabled={generatingSummary}
+                  className="btn-primary !py-1.5 !px-3 text-xs inline-flex items-center gap-1.5 shadow-sm"
+                >
+                  {generatingSummary ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin" />
+                      <span>Generating AI Summary...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={13} />
+                      <span>Generate AI Summary</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* FEATURE 3: Chapter-Wise Summaries & Key Concepts Section */}

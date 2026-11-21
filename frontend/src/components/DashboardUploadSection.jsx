@@ -111,6 +111,7 @@ export default function DashboardUploadSection({ onUploadSuccess }) {
   const [classifying, setClassifying] = useState(false);
   const [aiSummary, setAiSummary] = useState("");
   const [structuredSummary, setStructuredSummary] = useState(null);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
   const [summaryWordCount, setSummaryWordCount] = useState(0);
   const [maxSummaryWords, setMaxSummaryWords] = useState(500);
 
@@ -201,103 +202,39 @@ export default function DashboardUploadSection({ onUploadSuccess }) {
 
       setTotalPageCount(preValidation.pageCount);
 
-      // Step 2: Extracting text across every page
-      setProcessingStatus("Extracting text");
-      setStatusMessage(
-        preValidation.pageCount > 1
-          ? `Extracting text and structure across ${preValidation.pageCount} pages...`
-          : "Extracting text and structure across all pages..."
-      );
-
-      const fd = new FormData();
-      fd.append("file", selectedFile);
-      fd.append("title", cleanTitle);
-      fd.append("academicCategory", detectedCat || academicCategory);
-      fd.append("documentId", uniqueDocId);
-      fd.append("maxWords", "500");
-
-      const res = await materialsApi.generateAiSummary(fd);
-      const data = res.data;
-
-      // Ensure response matches current document ID
-      if (data.documentId && data.documentId !== uniqueDocId) {
-        throw new Error("Cross-document response mismatch detected. Please retry upload.");
-      }
-
-      // Step 3: Check if OCR was applied on scanned pages
-      if (data.pagesOcr && data.pagesOcr.length > 0) {
-        setProcessingStatus("Running OCR");
-        setStatusMessage(`Applied OCR extraction on ${data.pagesOcr.length} scanned image pages...`);
-      }
-
-      // Step 4: Record multi-page extraction metrics
-      const totalPages = data.totalPageCount || preValidation.pageCount || 1;
-      const processedPages = data.processedPageCount || totalPages;
-      const ocrPages = data.pagesOcr?.length || 0;
-      const failedPages = data.pagesFailed || [];
-      const extStatus = data.extractionStatus || (failedPages.length > 0 ? "Partially processed" : "Completed");
-
+      // Step 2: Validate document pages and structure without modifying or summarizing
+      const totalPages = preValidation.pageCount || 1;
       setTotalPageCount(totalPages);
-      setProcessedPageCount(processedPages);
-      setPagesOcrCount(ocrPages);
-      setPagesFailedList(failedPages);
-      setExtractionStatus(extStatus);
+      setProcessedPageCount(totalPages);
+      setPagesOcrCount(0);
+      setPagesFailedList([]);
+      setExtractionStatus("Completed");
+      setProcessingStatus("Completed");
+      setStatusMessage(`Original document ready (${totalPages} ${selectedFile.name.toLowerCase().includes(".ppt") ? "slides" : "pages"}).`);
 
-      if (data.warning) {
-        setWarningMessage(data.warning);
-      }
+      showToast("Document verified! Preview will display your original document unchanged.", "success");
 
-      // Step 5: Save AI Summary
-      if (data.summary && data.summary.trim()) {
-        const sumText = data.summary.trim();
-        const wCount = data.wordCount || sumText.split(/\s+/).filter(Boolean).length;
-        setAiSummary(sumText);
-        setStructuredSummary(data.structuredSummary || null);
-        setSummaryWordCount(wCount);
-        setMaxSummaryWords(data.maxWords || 500);
-
-        // If initial filename proposal was unspecific and AI extracted a specific title from content
-        if (data.suggestedTitle && checkTitleValidity(data.suggestedTitle).isValid) {
-          if (!checkTitleValidity(cleanTitle).isValid) {
-            setTitle(data.suggestedTitle);
-          }
+      // Auto-suggest branch & subject classification
+      setClassifying(true);
+      try {
+        const fdClass = new FormData();
+        fdClass.append("file", selectedFile);
+        fdClass.append("title", cleanTitle);
+        fdClass.append("academicCategory", detectedCat || academicCategory);
+        const classRes = await classifierApi.predict(fdClass);
+        const cData = classRes.data;
+        setClassification(cData);
+        if (cData && cData.branch && cData.branch !== "Unable to classify") {
+          setDepartment(cData.branch);
+          setAcademicCategory(cData.branch);
         }
-
-        const finalStatus = failedPages.length > 0 ? "Partially processed" : "Completed";
-        setProcessingStatus(finalStatus);
-        setStatusMessage(
-          failedPages.length > 0
-            ? `Partially processed: ${processedPages} of ${totalPages} pages extracted.`
-            : `All ${totalPages} pages successfully extracted and summarized.`
-        );
-
-        showToast(
-          failedPages.length > 0
-            ? `Extracted ${processedPages} of ${totalPages} pages. Partial summary generated.`
-            : "Complete document extracted! AI summary ready.",
-          failedPages.length > 0 ? "warning" : "success"
-        );
-
-        // Step 6: FEATURE 1 - Predict branch and subject classification
-        setClassifying(true);
-        try {
-          const classRes = await classifierApi.predict(fd);
-          const cData = classRes.data;
-          setClassification(cData);
-          if (cData && cData.branch && cData.branch !== "Unable to classify") {
-            setDepartment(cData.branch);
-            setAcademicCategory(cData.branch);
-          }
-          if (cData && cData.subject && cData.subject !== "Unable to classify") {
-            setSubject(cData.subject);
-          }
-        } catch (cErr) {
-          console.debug("Classifier prediction notice:", cErr);
-        } finally {
-          setClassifying(false);
+        if (cData && cData.subject && cData.subject !== "Unable to classify") {
+          setSubject(cData.subject);
         }
-      } else {
-        throw new Error("Backend could not generate a summary from the document text.");
+      } catch (cErr) {
+        console.debug("Classifier notice:", cErr);
+      } finally {
+        setClassifying(false);
       }
     } catch (err) {
       setProcessingStatus("Failed");
@@ -309,13 +246,42 @@ export default function DashboardUploadSection({ onUploadSuccess }) {
       } else {
         setValidationRejection(null);
       }
-      if (err.message === "Network Error" || err.code === "ERR_NETWORK" || !err.response) {
-        errDetail = typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"
-          ? "Cannot connect to the backend server. Please check your internet connection or verify the server status."
-          : "Cannot connect to the backend server. Please ensure the backend is running by running 'start-dev.bat' or 'python -m uvicorn main:app --reload'.";
-      }
       setErrorMessage(errDetail);
       showToast(errDetail, "error");
+    }
+  };
+
+  const handleGenerateSummaryClick = async () => {
+    if (!file) {
+      showToast("Please upload a document first.", "error");
+      return;
+    }
+    setGeneratingSummary(true);
+    setStatusMessage("Generating AI summary from document content...");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("title", title || file.name);
+      fd.append("academicCategory", academicCategory);
+      fd.append("documentId", documentId || `doc_${Date.now()}`);
+      fd.append("maxWords", "500");
+
+      const res = await materialsApi.generateAiSummary(fd);
+      const data = res.data;
+      if (data.summary && data.summary.trim()) {
+        const sumText = data.summary.trim();
+        const wCount = data.wordCount || sumText.split(/\s+/).filter(Boolean).length;
+        setAiSummary(sumText);
+        setStructuredSummary(data.structuredSummary || null);
+        setSummaryWordCount(wCount);
+        setMaxSummaryWords(data.maxWords || 500);
+        showToast("AI summary generated successfully!", "success");
+      }
+    } catch (err) {
+      const msg = err.response?.data?.detail || err.message || "Could not generate summary.";
+      showToast(typeof msg === "string" ? msg : "Failed to generate summary.", "error");
+    } finally {
+      setGeneratingSummary(false);
     }
   };
 
@@ -335,11 +301,6 @@ export default function DashboardUploadSection({ onUploadSuccess }) {
     const titleValidation = checkTitleValidity(title);
     if (!titleValidation.isValid) {
       showToast(titleValidation.message, "error");
-      return;
-    }
-
-    if (!aiSummary.trim() || (processingStatus !== "Completed" && processingStatus !== "Partially processed")) {
-      showToast("Document must be successfully extracted before submitting.", "error");
       return;
     }
 
@@ -774,38 +735,63 @@ export default function DashboardUploadSection({ onUploadSuccess }) {
         </div>
 
         {/* ========================================================
-            4. AI-GENERATED SUMMARY
+            4. AI-GENERATED SUMMARY (OPTIONAL & SEPARATE FROM PREVIEW)
         ======================================================== */}
         <div className="w-full">
-          {processingStatus === "Uploading" || processingStatus === "Extracting text" || processingStatus === "Running OCR" || processingStatus === "Generating summary" ? (
+          {generatingSummary ? (
             <div className="p-8 rounded-3xl bg-white border border-purple-100 text-xs text-gray-600 flex flex-col items-center justify-center gap-3 shadow-xs">
               <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600">
                 <RefreshCw size={22} className="animate-spin" />
               </div>
-              <span className="font-extrabold text-sm text-gray-800">{processingStatus}...</span>
-              <span className="text-xs text-gray-500">{statusMessage}</span>
+              <span className="font-extrabold text-sm text-gray-800">Generating AI Summary...</span>
+              <span className="text-xs text-gray-500">Extracting content and synthesizing concise study notes...</span>
             </div>
           ) : aiSummary ? (
             <div className="space-y-3">
               <StructuredSummaryView
                 summary={aiSummary}
                 structuredData={structuredSummary}
-                title={title || file?.name || "Module 1 - Introduction to Generative AI"}
+                title={title || file?.name || "Study Notes"}
                 category={academicCategory}
                 pageCount={processedPageCount || totalPageCount || 1}
                 wordCount={summaryWordCount}
                 maxWords={maxSummaryWords}
               />
-              <p className="text-[11px] text-gray-500 flex items-center gap-1.5 px-3">
-                <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
-                <span>
-                  Grounded strictly in the extracted content of this document. Synthesized across all {processedPageCount} {pageUnit}.
+              <div className="flex items-center justify-between px-3 text-[11px] text-gray-500">
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                  <span>Grounded strictly in the extracted content of your document.</span>
                 </span>
-              </p>
+                <button
+                  type="button"
+                  onClick={handleGenerateSummaryClick}
+                  disabled={generatingSummary}
+                  className="text-brand-700 font-bold hover:underline"
+                >
+                  Regenerate
+                </button>
+              </div>
             </div>
           ) : (
-            <div className="p-8 rounded-3xl bg-white/70 border border-dashed border-purple-200 text-xs text-gray-400 text-center">
-              Upload a document above. The system will extract every page and generate a complete structured summary based only on your document.
+            <div className="p-6 rounded-2xl bg-white border border-dashed border-gray-300 text-xs text-gray-500 text-center space-y-3">
+              <div className="flex items-center justify-center gap-2 text-brand-700 font-bold">
+                <Sparkles size={16} />
+                <span>AI Summarization (Optional)</span>
+              </div>
+              <p className="max-w-md mx-auto text-gray-500 text-[11px] leading-relaxed">
+                CampusVerse keeps your uploaded notes in their exact original form for Preview. You can optionally generate an AI summary now, or generate it later from the details page.
+              </p>
+              {file && (
+                <button
+                  type="button"
+                  onClick={handleGenerateSummaryClick}
+                  disabled={generatingSummary}
+                  className="btn-secondary !py-1.5 !px-3 text-xs inline-flex items-center gap-1.5 shadow-xs"
+                >
+                  <Sparkles size={13} className={generatingSummary ? "animate-spin text-brand-600" : "text-brand-600"} />
+                  <span>{generatingSummary ? "Generating AI Summary..." : "Generate AI Summary"}</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -816,7 +802,7 @@ export default function DashboardUploadSection({ onUploadSuccess }) {
         <div className="pt-2">
           <button
             type="submit"
-            disabled={submitting || !file || !aiSummary || (processingStatus !== "Completed" && processingStatus !== "Partially processed")}
+            disabled={submitting || !file}
             className="btn-primary w-full !py-3.5 text-sm font-bold shadow-md flex items-center justify-center gap-2 !bg-[#3e362e] hover:!bg-[#2a241e] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? (

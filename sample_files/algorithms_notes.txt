@@ -1,0 +1,43 @@
+# Algorithms & Complexity Analysis: Lecture Notes
+Subject: Design & Analysis of Algorithms
+Branch: Computer Science & Engineering | Semester: 4
+Author: Academic Department
+
+================================================================================
+1. Asymptotic Notations
+================================================================================
+- Big-O Notation (O): Represents the upper bound of an algorithm's running time.
+  f(n) = O(g(n)) if there exist positive constants c and n0 such that:
+  0 <= f(n) <= c * g(n) for all n >= n0.
+
+- Big-Omega Notation (Omega): Represents the lower bound.
+  f(n) = Omega(g(n)) if 0 <= c * g(n) <= f(n) for all n >= n0.
+
+- Theta Notation (Theta): Represents the asymptotically tight bound.
+  f(n) = Theta(g(n)) if c1 * g(n) <= f(n) <= c2 * g(n) for all n >= n0.
+
+================================================================================
+2. Divide-and-Conquer Paradigm
+================================================================================
+Three core steps:
+1. Divide the problem into a number of subproblems that are smaller instances
+   of the same problem.
+2. Conquer the subproblems by solving them recursively. If the subproblem sizes
+   are small enough, solve them straightforwardly.
+3. Combine the solutions to the subproblems into the solution for the original problem.
+
+Master Theorem for Recurrence Relations:
+T(n) = a * T(n / b) + f(n) where a >= 1 and b > 1.
+- Case 1: If f(n) = O(n^(log_b(a) - epsilon)), then T(n) = Theta(n^log_b(a)).
+- Case 2: If f(n) = Theta(n^log_b(a) * log^k(n)), then T(n) = Theta(n^log_b(a) * log^(k+1)(n)).
+- Case 3: If f(n) = Omega(n^(log_b(a) + epsilon)), then T(n) = Theta(f(n)).
+
+================================================================================
+3. Dynamic Programming vs Greedy Strategy
+================================================================================
+- Dynamic Programming solves problems with overlapping subproblems and optimal
+  substructure by memorizing intermediate sub-solutions (top-down memoization
+  or bottom-up tabulation).
+- Greedy algorithms make the locally optimal choice at each stage with the
+  hope of finding a global optimum. Must prove greedy-choice property and
+  optimal substructure.
