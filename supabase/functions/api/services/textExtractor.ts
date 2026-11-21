@@ -65,13 +65,12 @@ export async function extractPptx(fileBytes: Uint8Array): Promise<ExtractionResu
     // Detect heading from first text segment
     const firstWords = slideText.split(/\s+/).slice(0, 6).join(" ");
 
-    if (slideText.trim().length > 0) {
-      pages.push({
-        pageNumber: slideNum,
-        text: slideText,
-        heading: firstWords ? `Slide ${slideNum}: ${firstWords}` : `Slide ${slideNum}`,
-      });
-    }
+    // Even if a slide only contains diagrams/shapes with minimal text, register the slide
+    pages.push({
+      pageNumber: slideNum,
+      text: slideText.trim().length > 0 ? slideText : `[Slide ${slideNum} visual slide]`,
+      heading: firstWords ? `Slide ${slideNum}: ${firstWords}` : `Slide ${slideNum}`,
+    });
   }
 
   const fullText = pages.map((p) => p.text).join("\n\n");

@@ -294,7 +294,7 @@ materialsRouter.get("/:id/preview", async (c) => {
     let { data: chunkRecords } = await supabase
       .from("document_chunks")
       .select("page_number, heading, text")
-      .eq("material_id", item.id)
+      .or(`material_id.eq.${item.id},material_id.eq.${item.document_id}`)
       .order("page_number", { ascending: true });
 
     // Fallback on-the-fly extraction if chunks were missing
