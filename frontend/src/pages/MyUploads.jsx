@@ -268,11 +268,13 @@ export default function MyUploads() {
       </Modal>
 
       {/* Material Preview Modal */}
-      <MaterialPreviewModal
-        materialId={previewId}
-        open={Boolean(previewId)}
-        onClose={() => setPreviewId(null)}
-      />
+      {Boolean(previewId) && (
+        <MaterialPreviewModal
+          materialId={previewId}
+          open={Boolean(previewId)}
+          onClose={() => setPreviewId(null)}
+        />
+      )}
     </div>
   );
 }

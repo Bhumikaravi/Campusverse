@@ -483,11 +483,13 @@ export default function MaterialDetails() {
         </div>
       </div>
 
-      <MaterialPreviewModal
-        materialId={activeMatId}
-        open={showPreview}
-        onClose={() => setShowPreview(false)}
-      />
+      {showPreview && (
+        <MaterialPreviewModal
+          materialId={activeMatId}
+          open={showPreview}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
 
       {showCorrectionModal && (
         <ClassificationCorrectionModal

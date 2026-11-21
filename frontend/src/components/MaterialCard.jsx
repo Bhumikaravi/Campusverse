@@ -317,11 +317,13 @@ export default function MaterialCard({ material, onToggleBookmark }) {
       </div>
 
       {/* Modal Preview Instance */}
-      <MaterialPreviewModal
-        materialId={resolvedId}
-        open={showPreview}
-        onClose={() => setShowPreview(false)}
-      />
+      {showPreview && (
+        <MaterialPreviewModal
+          materialId={resolvedId}
+          open={showPreview}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </>
   );
 }

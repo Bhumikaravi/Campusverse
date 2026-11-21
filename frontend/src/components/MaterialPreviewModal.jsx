@@ -162,7 +162,7 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
     return () => {
       isCancelled = true;
     };
-  }, [open, isDoc, activeTab, fileUrl]);
+  }, [open, isDoc, fileUrl]);
 
   if (!open) return null;
 
