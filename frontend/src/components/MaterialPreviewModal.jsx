@@ -736,7 +736,27 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
                                   </div>
                                 </div>
                               ) : (
-                                <div className="text-gray-400 text-sm">No slides available.</div>
+                                <div className="max-w-md mx-auto my-auto p-6 bg-gray-900 border border-gray-700 rounded-2xl text-center shadow-xl">
+                                  <Layers size={36} className="mx-auto text-brand-400 mb-3" />
+                                  <h4 className="font-bold text-white text-base">Original Presentation Deck</h4>
+                                  <p className="mt-2 text-xs text-gray-300 leading-relaxed">
+                                    View this presentation with full visual slide transitions, diagrams and graphics using the embedded online viewers below:
+                                  </p>
+                                  <div className="mt-4 flex flex-wrap justify-center gap-2">
+                                    <button
+                                      onClick={() => setPresentationEngine("office")}
+                                      className="btn-secondary !py-2 !px-3 text-xs inline-flex items-center gap-1.5 !bg-gray-800 hover:!bg-gray-700 !text-white !border-gray-600"
+                                    >
+                                      <Monitor size={13} /> View with Office Viewer
+                                    </button>
+                                    <button
+                                      onClick={() => setPresentationEngine("google")}
+                                      className="btn-secondary !py-2 !px-3 text-xs inline-flex items-center gap-1.5 !bg-gray-800 hover:!bg-gray-700 !text-white !border-gray-600"
+                                    >
+                                      <Globe size={13} /> View with Google Docs
+                                    </button>
+                                  </div>
+                                </div>
                               )}
                             </div>
                           </div>

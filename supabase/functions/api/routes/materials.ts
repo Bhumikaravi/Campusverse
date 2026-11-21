@@ -291,11 +291,50 @@ materialsRouter.get("/:id/preview", async (c) => {
   // Load real slides from document_chunks for slide navigation
   let slides: Array<{ index: number; title: string; text: string }> = [];
   if (kind === "slides") {
-    const { data: chunkRecords } = await supabase
+    let { data: chunkRecords } = await supabase
       .from("document_chunks")
       .select("page_number, heading, text")
       .eq("material_id", item.id)
       .order("page_number", { ascending: true });
+
+    // Fallback on-the-fly extraction if chunks were missing
+    if ((!chunkRecords || chunkRecords.length === 0) && item.storage_key) {
+      try {
+        const { data: fileBlob } = await supabase.storage
+          .from("study-materials")
+          .download(item.storage_key);
+
+        if (fileBlob) {
+          const arrBuf = await fileBlob.arrayBuffer();
+          const extraction = await extractDocumentContent(
+            new Uint8Array(arrBuf),
+            item.original_name || `${item.title || "document"}.${ext}`
+          );
+
+          if (extraction?.pages?.length > 0) {
+            const rows = extraction.pages.map((p, idx) => ({
+              material_id: item.id,
+              title: p.heading || `${item.title || "Document"} - Slide ${p.pageNumber}`,
+              heading: p.heading || `Slide ${p.pageNumber}`,
+              page_number: p.pageNumber,
+              chunk_index: idx,
+              text: p.text,
+              status: "ACTIVE",
+            }));
+
+            await supabase.from("document_chunks").insert(rows);
+
+            chunkRecords = rows.map((r) => ({
+              page_number: r.page_number,
+              heading: r.heading,
+              text: r.text,
+            }));
+          }
+        }
+      } catch (extractErr) {
+        console.warn("On-the-fly slide extraction notice:", extractErr);
+      }
+    }
 
     if (chunkRecords && chunkRecords.length > 0) {
       slides = chunkRecords.map((c: any) => ({
@@ -566,9 +605,10 @@ materialsRouter.post("/", async (c) => {
   }));
 
   if (chunkRows.length > 0) {
-    await supabase.from("document_chunks").insert(chunkRows).catch((err: any) => {
-      console.warn("Failed to insert chunk rows:", err);
-    });
+    const { error: chunkErr } = await supabase.from("document_chunks").insert(chunkRows);
+    if (chunkErr) {
+      console.warn("document_chunks insert error:", chunkErr);
+    }
   }
 
   return c.json({

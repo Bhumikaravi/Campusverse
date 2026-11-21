@@ -45,3 +45,6 @@ Thumbs.db
 CampusVerse_Capstone_Project_Report.*
 koyeb.exe
 koyeb*.zip
+
+.vercel
+.env*
