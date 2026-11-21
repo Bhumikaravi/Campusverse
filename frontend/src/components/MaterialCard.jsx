@@ -57,7 +57,8 @@ export default function MaterialCard({ material, onToggleBookmark }) {
 
   const totalPages = totalPageCount || pageCount || 1;
   const processedPages = processedPageCount || totalPages;
-  const isSlideType = fileType.toUpperCase().includes("PPT");
+  const cleanFileType = String(fileType || material?.extension || "PDF");
+  const isSlideType = cleanFileType.toUpperCase().includes("PPT");
   const unit = isSlideType ? (totalPages === 1 ? "slide" : "slides") : (totalPages === 1 ? "page" : "pages");
   const pageLabel = processedPages === totalPages ? `${totalPages} ${unit}` : `${processedPages}/${totalPages} ${unit}`;
 

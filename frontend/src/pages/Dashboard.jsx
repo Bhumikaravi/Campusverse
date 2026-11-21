@@ -94,9 +94,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     // Calculate live contributor leaderboard from loaded materials
-    if (allMaterials && allMaterials.length > 0) {
+    if (Array.isArray(allMaterials) && allMaterials.length > 0) {
       const contributorMap = {};
       allMaterials.forEach((m) => {
+        if (!m) return;
         const uName = m.uploaderName || m.author || "Student Contributor";
         const course = m.course || m.academicCategory || m.department || "Academic Studies";
         if (!contributorMap[uName]) {
@@ -110,7 +111,9 @@ export default function Dashboard() {
         }
         contributorMap[uName].uploads += 1;
         contributorMap[uName].downloads += (m.downloads || 0);
-        if (m.rating) contributorMap[uName].ratings.push(parseFloat(m.rating));
+        if (m.rating && !isNaN(parseFloat(m.rating))) {
+          contributorMap[uName].ratings.push(parseFloat(m.rating));
+        }
       });
 
       const dynamicContributors = Object.values(contributorMap).map((c) => {
@@ -139,10 +142,11 @@ export default function Dashboard() {
   // Dynamically extract unique subjects from the uploaded materials
   const availableSubjects = useMemo(() => {
     const set = new Set();
-    (allMaterials || []).forEach((m) => {
-      const s = m.subject || m.department || m.academicCategory;
-      if (s && s.trim() && s !== "Engineering") {
-        set.add(s.trim());
+    (Array.isArray(allMaterials) ? allMaterials : []).forEach((m) => {
+      if (!m) return;
+      const s = String(m.subject || m.department || m.academicCategory || "").trim();
+      if (s && s !== "Engineering") {
+        set.add(s);
       }
     });
     return ["All Materials", ...Array.from(set)];
@@ -150,10 +154,11 @@ export default function Dashboard() {
 
   // Materials automatically segregated by the selected subject
   const segregatedMaterials = useMemo(() => {
-    if (!allMaterials) return null;
+    if (!Array.isArray(allMaterials)) return null;
     if (selectedSubject === "All Materials") return allMaterials;
     return allMaterials.filter((m) => {
-      const s = m.subject || m.department || m.academicCategory || "";
+      if (!m) return false;
+      const s = String(m.subject || m.department || m.academicCategory || "");
       return s.toLowerCase() === selectedSubject.toLowerCase();
     });
   }, [allMaterials, selectedSubject]);
@@ -471,8 +476,9 @@ export default function Dashboard() {
             ? Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)
             : recommended.length === 0
             ? <p className="col-span-full text-sm text-white/80">Upload or bookmark materials to receive personalized recommendations.</p>
-            : recommended.slice(0, 4).map((m) => {
-                const mid = m.id || m._id;
+            : (recommended || []).slice(0, 4).map((m) => {
+                if (!m) return null;
+                const mid = m.id || m._id || m.documentId;
                 return <MaterialCard key={mid} material={m} onToggleBookmark={loadDashboardData} />;
               })}
         </div>
@@ -491,8 +497,9 @@ export default function Dashboard() {
           </div>
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {popularMaterials.slice(0, 4).map((m) => {
-              const mid = m.id || m._id;
+            {(popularMaterials || []).slice(0, 4).map((m) => {
+              if (!m) return null;
+              const mid = m.id || m._id || m.documentId;
               return <MaterialCard key={mid} material={m} onToggleBookmark={loadDashboardData} />;
             })}
           </div>

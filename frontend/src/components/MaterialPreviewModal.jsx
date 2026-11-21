@@ -121,7 +121,7 @@ export default function MaterialPreviewModal({ materialId, open, onClose }) {
   }
 
   // Extension & Kind
-  const ext = (preview?.extension || material?.fileType || material?.extension || "pdf")
+  const ext = String(preview?.extension || material?.fileType || material?.extension || "pdf")
     .toLowerCase()
     .replace(".", "");
 
