@@ -35,6 +35,11 @@ export class ErrorBoundary extends React.Component {
               <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">
                 We encountered an error loading this section. You can reload the page or return to the home screen.
               </p>
+              {this.state.error && (
+                <div className="mt-3 p-3 bg-red-50 text-red-700 rounded-xl text-xs font-mono text-left overflow-auto max-h-40 border border-red-200 break-words select-text">
+                  {String(this.state.error?.message || this.state.error)}
+                </div>
+              )}
             </div>
             <div className="flex gap-3 justify-center pt-2">
               <button

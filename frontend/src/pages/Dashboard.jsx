@@ -64,16 +64,20 @@ export default function Dashboard() {
       materialsApi.myUploads().catch(() => ({ data: { materials: [] } })),
       bookmarksApi.list().catch(() => ({ data: { materials: [] } })),
       historyApi.list().catch(() => ({ data: { history: [] } })),
-    ]).then(([ups, bks, dls]) => {
-      const uCount = ups.data.materials?.length || 0;
-      const dCount = dls.data.history?.length || 0;
-      setStats({
-        uploads: uCount,
-        bookmarks: bks.data.materials?.length || 0,
-        downloads: dCount,
-        reputation: (uCount * 50) + (dCount * 10) + 120,
+    ])
+      .then(([ups, bks, dls]) => {
+        const uCount = ups?.data?.materials?.length || 0;
+        const dCount = dls?.data?.history?.length || 0;
+        setStats({
+          uploads: uCount,
+          bookmarks: bks?.data?.materials?.length || 0,
+          downloads: dCount,
+          reputation: uCount * 50 + dCount * 10 + 120,
+        });
+      })
+      .catch(() => {
+        setStats({ uploads: 0, bookmarks: 0, downloads: 0, reputation: 120 });
       });
-    });
 
     // 4. Top Recognition of the Day
     recognitionApi
@@ -314,8 +318,9 @@ export default function Dashboard() {
                 <p className="text-xs text-gray-500 mt-1">Upload a document to have it automatically segregated into this subject.</p>
               </div>
             )
-            : segregatedMaterials.slice(0, 9).map((m) => {
-                const mid = m.id || m._id;
+            : (segregatedMaterials || []).slice(0, 9).map((m, idx) => {
+                if (!m) return null;
+                const mid = m.id || m._id || m.documentId || `seg-${idx}`;
                 return <MaterialCard key={mid} material={m} onToggleBookmark={loadDashboardData} />;
               })}
         </div>
